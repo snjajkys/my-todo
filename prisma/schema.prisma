@@ -1,0 +1,30 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Todo {
+  id        Int      @id @default(autoincrement())
+  title     String
+  completed Boolean  @default(false)
+  /// "TODAY"(오늘 할 일) | "PERIOD"(기간을 두고 할 일)
+  /// SQLite 는 enum 을 지원하지 않아 문자열로 저장하고 API 에서 검증한다.
+  type      String   @default("TODAY")
+  /// 날짜만 의미가 있으므로 UTC 자정으로 저장한다.
+  /// TODAY: 그 할 일의 기준 날짜(등록한 날). endDate 는 사용하지 않는다.
+  /// PERIOD: 시작일 / 종료일.
+  startDate DateTime?
+  endDate   DateTime?
+  /// 완료 처리한 시각. 완료를 해제하면 null 로 되돌린다.
+  /// TODAY 할 일이 "언제 완료됐는지" 판단해 지난 날짜 항목을 목록에서 내리는 데 쓴다.
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+:root {
+  /* 책상 (다이어리가 놓인 바닥) */
+  --desk: #a08d78;
+  --desk-2: #7d6b58;
+
+  /* 종이 */
+  --background: #fdfaf3;
+  --foreground: #2f2a24;
+  --card: #fffdf8;
+  --border: #e4dac6;
+  --muted: #8a8073;
+
+  /* 만년필 잉크 (기본 강조색) */
+  --ink: #2f4574;
+  --ink-strong: #22335a;
+  --ink-soft: #e6ecf8;
+  --ink-text: #2f4574;
+
+  /* 세피아 잉크 (기간 할 일) */
+  --sepia: #8a5a2b;
+  --sepia-soft: #f4e8d8;
+  --sepia-text: #8a5a2b;
+
+  /* 제본 */
+  --hole: #6f6252;
+  --hole-rim: rgba(0, 0, 0, 0.22);
+  --wire-hi: #f2f3f5;
+  --wire: #b9bcc4;
+  --wire-lo: #7e828c;
+  --paper-edge: rgba(90, 70, 45, 0.13);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-text: var(--ink-text);
+
+  --color-sepia: var(--sepia);
+  --color-sepia-soft: var(--sepia-soft);
+  --color-sepia-text: var(--sepia-text);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 밤에 쓰는 다이어리 */
+    --desk: #17120d;
+    --desk-2: #0a0807;
+
+    --background: #1d1913;
+    --foreground: #ece4d5;
+    --card: #262019;
+    --border: #38301f;
+    --muted: #a2988a;
+
+    --ink: #45589a;
+    --ink-strong: #55689f;
+    --ink-soft: rgba(90, 112, 180, 0.2);
+    --ink-text: #a8bbe8;
+
+    --sepia: #8a6134;
+    --sepia-soft: rgba(160, 120, 70, 0.2);
+    --sepia-text: #d8b183;
+
+    --hole: #0d0b09;
+    /* 어두운 배경에서는 검은 테두리가 보이지 않으므로, 종이 단면이
+       빛을 받는 것처럼 밝은 테를 둘러 구멍임을 드러낸다 */
+    --hole-rim: rgba(255, 255, 255, 0.16);
+    --wire-hi: #c9ccd3;
+    --wire: #8d9099;
+    --wire-lo: #4c4f57;
+    --paper-edge: rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 캔버스 색을 그라데이션 바깥쪽 색과 맞춰,
+   페이지 끝을 넘어가는 스크롤(바운스 등)에서도 색이 끊기지 않게 한다. */
+html {
+  background-color: var(--desk-2);
+}
+
+body {
+  /* background-attachment: fixed 는 화면보다 긴 페이지에서 뷰포트 경계에
+     이음매를 만들기 때문에 쓰지 않는다. */
+  background: var(--desk);
+  background-image: radial-gradient(
+    ellipse at 50% 0%,
+    var(--desk) 0%,
+    var(--desk-2) 100%
+  );
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ── 다이어리 한 장 (무지) ─────────────────────────── */
+
+.diary {
+  position: relative;
+  border-radius: 0.375rem 0.75rem 0.75rem 0.375rem;
+  background-color: var(--background);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 10px 30px -6px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px var(--paper-edge);
+}
+
+/* 제본 쪽 종이가 살짝 접히며 지는 그늘 (괘선 대신 두는 최소한의 결) */
+.diary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2.75rem;
+  border-radius: 0.375rem 0 0 0.375rem;
+  background: linear-gradient(
+    to right,
+    var(--paper-edge) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* 스프링 코일. 종이 왼쪽 끝을 감싸도록 바깥으로 조금 빠져나온다. */
+.diary-rings {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  /* 종이 왼쪽 끝보다 20px 바깥에서 시작해 코일이 모서리를 감싸 보이게 한다 */
+  left: -1.25rem;
+  width: 3rem;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.diary-content {
+  position: relative;
+  /* 좁은 화면에서는 왼쪽 여백을 최소로 잡아 카드 폭을 확보한다 */
+  padding: 1.5rem 0.875rem 2rem 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .diary::before {
+    width: 4rem;
+  }
+
+  .diary-content {
+    padding: 2.25rem 2rem 3rem 4.5rem;
+  }
+}
