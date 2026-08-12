@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Todo {
@@ -15,7 +15,8 @@ model Todo {
   title     String
   completed Boolean  @default(false)
   /// "TODAY"(오늘 할 일) | "PERIOD"(기간을 두고 할 일)
-  /// SQLite 는 enum 을 지원하지 않아 문자열로 저장하고 API 에서 검증한다.
+  /// SQLite 시절부터 문자열로 저장하고 API 에서 검증해 왔다.
+  /// PostgreSQL 로 옮겼으므로 enum 으로 바꿀 수 있지만, 별도 마이그레이션으로 처리한다.
   type      String   @default("TODAY")
   /// 날짜만 의미가 있으므로 UTC 자정으로 저장한다.
   /// TODAY: 그 할 일의 기준 날짜(등록한 날). endDate 는 사용하지 않는다.

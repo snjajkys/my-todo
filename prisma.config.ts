@@ -9,6 +9,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // 마이그레이션은 Supabase 의 transaction pooler(6543) 로는 돌지 않는다.
+    // CLI 는 세션 커넥션(5432)인 DIRECT_URL 을 쓰고, 앱 런타임만 DATABASE_URL 을 쓴다.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });
