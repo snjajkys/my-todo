@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import ChangePassword from "@/components/ChangePassword";
 import DeleteAccount from "@/components/DeleteAccount";
 import DiaryRings from "@/components/DiaryRings";
 import LogoutButton from "@/components/LogoutButton";
@@ -38,6 +39,7 @@ export default async function Home() {
 
           <TodoApp />
 
+          <ChangePassword />
           <DeleteAccount username={user.username} />
         </div>
       </div>

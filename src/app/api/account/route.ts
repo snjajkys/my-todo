@@ -1,7 +1,65 @@
 import { NextResponse } from 'next/server'
+import { validatePassword } from '@/lib/accountRules'
 import { getActiveUserId } from '@/lib/currentUser'
-import { SESSION_COOKIE, sessionCookieOptions } from '@/lib/session'
-import { deleteUser, verifyUserPassword } from '@/lib/user'
+import {
+  SESSION_COOKIE,
+  createSessionToken,
+  sessionCookieOptions,
+} from '@/lib/session'
+import { changePassword, deleteUser, verifyUserPassword } from '@/lib/user'
+
+// PATCH /api/account - 비밀번호 변경
+export async function PATCH(request: Request) {
+  try {
+    const userId = await getActiveUserId()
+
+    if (userId === null) {
+      return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+    }
+
+    const body = (await request.json().catch(() => null)) as {
+      currentPassword?: unknown
+      newPassword?: unknown
+    } | null
+
+    if (!(await verifyUserPassword(userId, body?.currentPassword))) {
+      return NextResponse.json(
+        { error: '현재 비밀번호가 올바르지 않습니다.' },
+        { status: 401 }
+      )
+    }
+
+    const parsed = validatePassword(body?.newPassword)
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 })
+    }
+
+    if (parsed.value === body?.currentPassword) {
+      return NextResponse.json(
+        { error: '지금 쓰는 비밀번호와 다른 값을 정해 주세요.' },
+        { status: 400 }
+      )
+    }
+
+    const changedAt = await changePassword(userId, parsed.value)
+
+    // 다른 기기의 세션은 모두 끊기므로, 지금 요청한 본인에게는 새 쿠키를 내준다.
+    const response = NextResponse.json({ ok: true })
+    response.cookies.set(
+      SESSION_COOKIE,
+      createSessionToken(userId, changedAt.getTime()),
+      sessionCookieOptions
+    )
+
+    return response
+  } catch (error) {
+    console.error('[PATCH /api/account]', error)
+    return NextResponse.json(
+      { error: '비밀번호를 바꾸지 못했습니다.' },
+      { status: 500 }
+    )
+  }
+}
 
 // DELETE /api/account - 내 계정과 내 할 일을 모두 삭제
 export async function DELETE(request: Request) {

@@ -71,6 +71,28 @@ export async function verifyUserPassword(userId: number, password: unknown) {
 }
 
 /**
+ * 비밀번호를 바꾸고, 바꾼 시각을 돌려준다.
+ *
+ * 그 시각보다 먼저 발급된 세션은 무효가 되므로 다른 기기의 로그인이 끊긴다.
+ * 시각을 DB 의 now() 가 아니라 앱에서 만들어 넣는 것은, 새로 발급할 세션의
+ * 발급 시각과 같은 시계를 쓰기 위해서다. 서로 다른 시계를 섞으면 방금 바꾼
+ * 본인 세션이 곧바로 무효가 될 수 있다.
+ */
+export async function changePassword(userId: number, newPassword: string) {
+  const changedAt = new Date()
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      passwordChangedAt: changedAt,
+    },
+  })
+
+  return changedAt
+}
+
+/**
  * 계정과 그 사람의 할 일을 함께 지운다.
  * 할 일 삭제는 Todo.userId 외래키의 ON DELETE CASCADE 가 처리한다.
  */

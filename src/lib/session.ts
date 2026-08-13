@@ -27,14 +27,21 @@ export function safeEqual(a: string, b: string) {
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
 
-/** `<사용자 id>.<만료시각(ms)>.<서명>` 형태의 세션 토큰을 만든다. */
-export function createSessionToken(userId: number) {
-  const payload = `${userId}.${Date.now() + SESSION_MAX_AGE_SECONDS * 1000}`
+/**
+ * `<사용자 id>.<발급시각(ms)>.<만료시각(ms)>.<서명>` 형태의 세션 토큰을 만든다.
+ *
+ * 발급 시각을 함께 실어야 비밀번호를 바꿨을 때 그 이전 세션을 가려낼 수 있다.
+ * `issuedAt` 을 넘길 수 있게 열어 둔 것은, 비밀번호 변경 시 DB 에 기록하는 시각과
+ * 토큰의 발급 시각을 같은 값으로 맞추기 위해서다. 서로 다른 시계에서 읽으면
+ * 근소한 차이로 방금 발급한 세션이 곧바로 무효가 될 수 있다.
+ */
+export function createSessionToken(userId: number, issuedAt = Date.now()) {
+  const payload = `${userId}.${issuedAt}.${issuedAt + SESSION_MAX_AGE_SECONDS * 1000}`
 
   return `${payload}.${sign(payload)}`
 }
 
-/** 유효하면 사용자 id 를, 아니면 null 을 돌려준다. */
+/** 유효하면 사용자 id 와 발급 시각을, 아니면 null 을 돌려준다. */
 export function readSessionToken(token: string | undefined) {
   if (!token) return null
 
@@ -46,14 +53,16 @@ export function readSessionToken(token: string | undefined) {
 
   if (!safeEqual(signature, sign(payload))) return null
 
-  const [rawUserId, rawExpiresAt] = payload.split('.')
+  const [rawUserId, rawIssuedAt, rawExpiresAt] = payload.split('.')
   const userId = Number(rawUserId)
+  const issuedAt = Number(rawIssuedAt)
   const expiresAt = Number(rawExpiresAt)
 
   if (!Number.isInteger(userId) || userId <= 0) return null
+  if (!Number.isFinite(issuedAt)) return null
   if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null
 
-  return userId
+  return { userId, issuedAt }
 }
 
 export const sessionCookieOptions = {

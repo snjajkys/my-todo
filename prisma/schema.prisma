@@ -17,8 +17,12 @@ model User {
   username     String   @unique
   /// scrypt 해시. `<salt(hex)>:<derivedKey(hex)>` 형식으로 저장한다.
   passwordHash String
-  createdAt    DateTime @default(now())
-  todos        Todo[]
+  /// 비밀번호를 마지막으로 바꾼 시각. 이 시각보다 먼저 발급된 세션은 무효로 본다.
+  /// 세션 토큰은 비밀번호와 무관하게 서명되므로, 이 값이 없으면 비밀번호를 바꿔도
+  /// 다른 기기에 남은 로그인이 그대로 살아 있게 된다.
+  passwordChangedAt DateTime @default(now())
+  createdAt         DateTime @default(now())
+  todos             Todo[]
 }
 
 model Todo {
