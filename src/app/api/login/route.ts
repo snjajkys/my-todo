@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
+import { verifyPassword } from '@/lib/password'
 import {
   SESSION_COOKIE,
   createSessionToken,
   sessionCookieOptions,
-  verifyPassword,
-} from '@/lib/auth'
+} from '@/lib/session'
 
 // POST /api/login - 로그인
 export async function POST(request: Request) {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const password = (body as { password?: unknown } | null)?.password
 
-    if (!verifyPassword(password)) {
+    if (!(await verifyPassword(password))) {
       return NextResponse.json(
         { error: '비밀번호가 올바르지 않습니다.' },
         { status: 401 }

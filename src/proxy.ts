@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth'
+import { SESSION_COOKIE, verifySessionToken } from '@/lib/session'
 
-// 로그인하지 않아도 닿을 수 있어야 하는 경로
-const PUBLIC_PATHS = new Set(['/login', '/api/login'])
+// 로그인하지 않아도 닿을 수 있어야 하는 경로.
+// 비밀번호 등록 여부는 DB 를 봐야 알 수 있어 여기서 판단하지 않는다.
+// 프록시는 요청마다 실행되므로 DB 를 건드리지 않고, /setup 과 /login 페이지가
+// 각자 등록 여부를 확인해 서로에게 넘긴다.
+const PUBLIC_PATHS = new Set(['/login', '/api/login', '/setup', '/api/setup'])
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
@@ -18,6 +21,8 @@ export function proxy(request: NextRequest) {
 
   if (PUBLIC_PATHS.has(pathname)) {
     // 이미 로그인한 사람에게 로그인 화면을 다시 보여줄 필요는 없다.
+    // /setup 은 등록 직후 리다이렉트 되기 전에도 열릴 수 있으므로 여기서 막지 않고,
+    // 페이지 쪽에서 등록 여부를 보고 넘긴다.
     if (pathname === '/login' && signedIn) {
       return NextResponse.redirect(new URL('/', request.url))
     }

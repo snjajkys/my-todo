@@ -1,27 +1,17 @@
 import { redirect } from 'next/navigation'
 import DiaryRings from '@/components/DiaryRings'
-import LoginForm from '@/components/LoginForm'
+import SetupForm from '@/components/SetupForm'
 import { isPasswordRegistered } from '@/lib/password'
 
 export const metadata = {
-  title: '로그인 · MY TODO',
+  title: '비밀번호 등록 · MY TODO',
 }
 
-// 외부 사이트로 튕겨 보내지 못하도록, 앱 안의 경로만 통과시킨다.
-function safeNext(value: string | string[] | undefined) {
-  if (typeof value !== 'string') return '/'
-  if (!value.startsWith('/') || value.startsWith('//')) return '/'
-
-  return value
-}
-
-export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
-  // 비밀번호를 아직 정하지 않았으면 로그인할 것이 없다.
-  if (!(await isPasswordRegistered())) {
-    redirect('/setup')
+export default async function SetupPage() {
+  // 등록은 최초 1회뿐이다. 이미 끝났으면 이 화면을 보여주지 않는다.
+  if (await isPasswordRegistered()) {
+    redirect('/login')
   }
-
-  const { next } = await searchParams
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 items-center px-4 py-10 sm:py-16">
@@ -37,11 +27,16 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
               MY TODO
             </h1>
             <p className="text-sm text-muted">
-              이 다이어리는 비밀번호로 잠겨 있습니다.
+              처음 오셨네요. 이 다이어리를 잠글 비밀번호를 정해 주세요.
             </p>
           </header>
 
-          <LoginForm next={safeNext(next)} />
+          <SetupForm />
+
+          <p className="mt-6 rounded-lg border border-border bg-card px-4 py-3 text-xs leading-relaxed text-muted">
+            비밀번호는 다시 볼 수 없게 저장되므로, 잊으면 되찾을 수 없습니다.
+            따로 적어 두세요.
+          </p>
         </div>
       </div>
     </main>
