@@ -30,6 +30,9 @@ export function proxy(request: NextRequest) {
   const refresh = (response: NextResponse) => {
     if (!session?.isAdmin) return response
 
+    // 이 경로는 세션을 줄이러 온 요청이다. 여기서 늘려 주면 서로 덮어쓴다.
+    if (pathname === '/api/session/suspend') return response
+
     const token = slideAdminSession(session)
     if (token) {
       response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions({ isAdmin: true }))

@@ -14,9 +14,14 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 // 계속하기"처럼 세션 복원이 켜진 브라우저는 창을 닫아도 세션 쿠키를 되살린다.
 // 실제로 모바일에서는 닫으면 풀렸지만 PC 에서는 그대로 남았다.
 //
-// 그래서 토큰 만료를 30초로 두고, 사용자가 조작하는 동안에만 계속 늘려 준다.
-// 창을 닫으면 늘려 줄 요청이 오지 않으므로 30초 뒤 무효가 된다.
-export const ADMIN_SESSION_IDLE_SECONDS = 30
+// 그래서 토큰 만료를 짧게 두고, 화면이 열려 있는 동안에만 계속 늘려 준다.
+// 창을 닫으면 늘려 줄 요청이 오지 않으므로 그대로 무효가 된다.
+export const ADMIN_SESSION_IDLE_SECONDS = 10
+
+// 창이 닫히거나 화면이 가려질 때 클라이언트가 알려 오면 이 값으로 줄인다.
+// 브라우저는 "닫기"와 "새로고침"을 구분해 주지 않으므로 0 으로 끊지 않는다.
+// 새로고침이었다면 이 시간 안에 화면이 돌아와 다시 늘려 준다.
+export const ADMIN_SESSION_SUSPEND_SECONDS = 3
 
 // 조작이 이어지는 한 무한히 늘어나지는 않도록 한계를 둔다.
 const ADMIN_SESSION_ABSOLUTE_SECONDS = 60 * 60 * 8
@@ -95,10 +100,10 @@ export function readSessionToken(token: string | undefined) {
  *
  * 절대 한계를 넘었으면 null 을 돌려주고, 그때는 늘리지 않고 만료되게 둔다.
  */
-export function slideAdminSession(session: {
-  userId: number
-  issuedAt: number
-}) {
+export function slideAdminSession(
+  session: { userId: number; issuedAt: number },
+  seconds = ADMIN_SESSION_IDLE_SECONDS
+) {
   const now = Date.now()
   const limit = session.issuedAt + ADMIN_SESSION_ABSOLUTE_SECONDS * 1000
 
@@ -107,7 +112,7 @@ export function slideAdminSession(session: {
   return createSessionToken(session.userId, {
     issuedAt: session.issuedAt,
     isAdmin: true,
-    expiresAt: Math.min(now + ADMIN_SESSION_IDLE_SECONDS * 1000, limit),
+    expiresAt: Math.min(now + seconds * 1000, limit),
   })
 }
 
