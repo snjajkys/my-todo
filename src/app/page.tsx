@@ -25,7 +25,9 @@ export default async function Home() {
 
         <div className="diary-content">
           <header className="mb-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
+            {/* 좁은 화면에서는 제목과 오른쪽 묶음이 한 줄에 다 들어가지 않는다.
+                이름을 숨기는 대신 줄을 넘겨, 누구로 들어왔는지는 어디서든 보이게 한다. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight sm:text-4xl">
                 <span role="img" aria-label="다이어리">
                   📔
@@ -33,9 +35,7 @@ export default async function Home() {
                 MY TODO
               </h1>
               <div className="flex items-center gap-3">
-                <span className="hidden text-sm text-muted sm:inline">
-                  {user.username}
-                </span>
+                <span className="text-sm text-muted">{user.username}</span>
                 {isAdmin && (
                   <Link
                     href="/admin"
