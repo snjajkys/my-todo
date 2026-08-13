@@ -79,6 +79,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // 정적 파일과 메타데이터 파일은 인증 없이 내보낸다.
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
+    // 아이콘과 매니페스트를 빼두지 않으면 로그인 화면과 홈 화면 바로가기에서
+    // 아이콘 요청이 로그인으로 돌려보내져 깨진다.
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon|apple-icon|manifest.webmanifest).*)',
   ],
 }

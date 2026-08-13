@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -14,7 +14,18 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MY TODO",
-  description: "Next.js + Prisma + SQLite 로 만든 할 일 관리 앱",
+  description: "다이어리처럼 쓰는 할 일 관리",
+  // 홈 화면에 추가하면 주소창 없이 앱처럼 열리고, 이름도 짧게 나온다.
+  appleWebApp: {
+    capable: true,
+    title: "MY TODO",
+    statusBarStyle: "default",
+  },
+};
+
+// 주소창과 상단 바 색을 잉크색으로 맞춰 화면과 이어지게 한다.
+export const viewport: Viewport = {
+  themeColor: "#2f4574",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
