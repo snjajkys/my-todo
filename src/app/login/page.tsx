@@ -10,6 +10,12 @@ function safeNext(value: string | string[] | undefined) {
   if (typeof value !== 'string') return '/'
   if (!value.startsWith('/') || value.startsWith('//')) return '/'
 
+  // 관리 화면은 볼 수 있는 사람이 정해져 있는데, 로그인하기 전에는 그게 누구인지
+  // 알 수 없다. 그대로 보내면 관리자가 아닌 사람이 로그인하자마자 404 를 만난다.
+  // 브라우저가 그 주소를 기록에서 되살리면 열 때마다 반복된다.
+  // 관리자는 홈의 "관리" 링크로 들어가면 되므로, 여기서는 홈으로 보낸다.
+  if (value === '/admin' || value.startsWith('/admin/')) return '/'
+
   return value
 }
 
