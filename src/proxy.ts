@@ -35,6 +35,12 @@ export function proxy(request: NextRequest) {
       response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions({ isAdmin: true }))
     }
 
+    // 모바일 브라우저는 탭을 뒤로 보낼 때 페이지를 통째로 캐시(bfcache)해 두었다가
+    // 그대로 되살린다. 세션이 끊겼는데도 로그인된 화면이 남아 있는 것처럼 보이는
+    // 이유다. no-store 가 붙은 응답은 bfcache 대상에서 빠지므로, 돌아올 때
+    // 화면을 되살리지 않고 서버에 다시 물어본다.
+    response.headers.set('Cache-Control', 'no-store, must-revalidate')
+
     return response
   }
 
