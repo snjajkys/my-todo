@@ -56,6 +56,28 @@ export async function createUser(username: string, password: string) {
   }
 }
 
+/** 이미 로그인한 사용자가 비밀번호를 다시 입력했을 때 확인한다. */
+export async function verifyUserPassword(userId: number, password: unknown) {
+  if (typeof password !== 'string') return false
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  })
+
+  if (!user) return false
+
+  return matches(password, user.passwordHash)
+}
+
+/**
+ * 계정과 그 사람의 할 일을 함께 지운다.
+ * 할 일 삭제는 Todo.userId 외래키의 ON DELETE CASCADE 가 처리한다.
+ */
+export async function deleteUser(userId: number) {
+  await prisma.user.delete({ where: { id: userId } })
+}
+
 /** 아이디와 비밀번호가 맞으면 사용자, 아니면 null. */
 export async function authenticate(username: unknown, password: unknown) {
   if (typeof username !== 'string' || typeof password !== 'string') return null
