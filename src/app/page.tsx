@@ -1,9 +1,16 @@
+import { redirect } from "next/navigation";
 import DiaryRings from "@/components/DiaryRings";
 import LogoutButton from "@/components/LogoutButton";
 import TodayBanner from "@/components/TodayBanner";
 import TodoApp from "@/components/TodoApp";
+import { getCurrentUser } from "@/lib/currentUser";
 
-export default function Home() {
+export default async function Home() {
+  // 프록시는 쿠키 서명만 본다. 세션이 30일이라 그 사이 계정이 사라졌을 수 있으므로
+  // 실제 사용자인지는 여기서 확인한다.
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-8 sm:py-12">
       <div className="diary">
@@ -18,7 +25,12 @@ export default function Home() {
                 </span>
                 MY TODO
               </h1>
-              <LogoutButton />
+              <div className="flex items-center gap-3">
+                <span className="hidden text-sm text-muted sm:inline">
+                  {user.username}
+                </span>
+                <LogoutButton />
+              </div>
             </div>
             <TodayBanner />
           </header>

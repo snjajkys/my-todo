@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation'
 import DiaryRings from '@/components/DiaryRings'
 import LoginForm from '@/components/LoginForm'
-import { isPasswordRegistered } from '@/lib/password'
 
 export const metadata = {
   title: '로그인 · MY TODO',
@@ -16,11 +14,6 @@ function safeNext(value: string | string[] | undefined) {
 }
 
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
-  // 비밀번호를 아직 정하지 않았으면 로그인할 것이 없다.
-  if (!(await isPasswordRegistered())) {
-    redirect('/setup')
-  }
-
   const { next } = await searchParams
 
   return (
@@ -37,7 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
               MY TODO
             </h1>
             <p className="text-sm text-muted">
-              이 다이어리는 비밀번호로 잠겨 있습니다.
+              내 다이어리를 열려면 로그인하세요.
             </p>
           </header>
 

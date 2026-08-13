@@ -1,26 +1,35 @@
 import { NextResponse } from 'next/server'
-import { verifyPassword } from '@/lib/password'
 import {
   SESSION_COOKIE,
   createSessionToken,
   sessionCookieOptions,
 } from '@/lib/session'
+import { authenticate } from '@/lib/user'
 
 // POST /api/login - 로그인
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => null)
-    const password = (body as { password?: unknown } | null)?.password
+    const body = (await request.json().catch(() => null)) as {
+      username?: unknown
+      password?: unknown
+    } | null
 
-    if (!(await verifyPassword(password))) {
+    const user = await authenticate(body?.username, body?.password)
+
+    if (!user) {
+      // 아이디가 없는 것인지 비밀번호가 틀린 것인지 구분해 주지 않는다.
       return NextResponse.json(
-        { error: '비밀번호가 올바르지 않습니다.' },
+        { error: '아이디 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
       )
     }
 
     const response = NextResponse.json({ ok: true })
-    response.cookies.set(SESSION_COOKIE, createSessionToken(), sessionCookieOptions)
+    response.cookies.set(
+      SESSION_COOKIE,
+      createSessionToken(user.id),
+      sessionCookieOptions
+    )
 
     return response
   } catch (error) {

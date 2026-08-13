@@ -10,14 +10,15 @@ datasource db {
   provider = "postgresql"
 }
 
-/// 앱 접근 비밀번호. 사용자가 첫 화면에서 직접 등록한다.
-/// 사용자가 한 명뿐이므로 행은 항상 최대 1개이고, id 는 1 로 고정한다.
-model AppAuth {
-  id           Int      @id @default(1)
+/// 각자 자기 다이어리를 쓴다. 가입은 초대 코드를 아는 사람만 할 수 있다.
+model User {
+  id Int @id @default(autoincrement())
+  /// 로그인 아이디. 대소문자 구분 없이 하나뿐이어야 하므로 소문자로만 저장한다.
+  username     String   @unique
   /// scrypt 해시. `<salt(hex)>:<derivedKey(hex)>` 형식으로 저장한다.
   passwordHash String
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  todos        Todo[]
 }
 
 model Todo {
@@ -38,4 +39,11 @@ model Todo {
   completedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// 이 할 일의 주인. 목록 조회부터 수정/삭제까지 모든 질의를 이 값으로 한정한다.
+  /// 빠뜨리면 id 만 바꿔가며 남의 할 일에 접근할 수 있게 된다.
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

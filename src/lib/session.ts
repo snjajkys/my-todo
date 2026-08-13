@@ -27,27 +27,33 @@ export function safeEqual(a: string, b: string) {
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
 
-/** `<만료시각(ms)>.<서명>` 형태의 세션 토큰을 만든다. */
-export function createSessionToken() {
-  const expiresAt = String(Date.now() + SESSION_MAX_AGE_SECONDS * 1000)
+/** `<사용자 id>.<만료시각(ms)>.<서명>` 형태의 세션 토큰을 만든다. */
+export function createSessionToken(userId: number) {
+  const payload = `${userId}.${Date.now() + SESSION_MAX_AGE_SECONDS * 1000}`
 
-  return `${expiresAt}.${sign(expiresAt)}`
+  return `${payload}.${sign(payload)}`
 }
 
-export function verifySessionToken(token: string | undefined) {
-  if (!token) return false
+/** 유효하면 사용자 id 를, 아니면 null 을 돌려준다. */
+export function readSessionToken(token: string | undefined) {
+  if (!token) return null
 
   const separator = token.lastIndexOf('.')
-  if (separator === -1) return false
+  if (separator === -1) return null
 
   const payload = token.slice(0, separator)
   const signature = token.slice(separator + 1)
 
-  if (!safeEqual(signature, sign(payload))) return false
+  if (!safeEqual(signature, sign(payload))) return null
 
-  const expiresAt = Number(payload)
+  const [rawUserId, rawExpiresAt] = payload.split('.')
+  const userId = Number(rawUserId)
+  const expiresAt = Number(rawExpiresAt)
 
-  return Number.isFinite(expiresAt) && expiresAt > Date.now()
+  if (!Number.isInteger(userId) || userId <= 0) return null
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null
+
+  return userId
 }
 
 export const sessionCookieOptions = {
