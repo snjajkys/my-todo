@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { SESSION_COOKIE, readSessionToken } from '@/lib/session'
+import {
+  SESSION_COOKIE,
+  readSessionToken,
+  sessionCookieOptions,
+  slideAdminSession,
+} from '@/lib/session'
 
 // 로그인하지 않아도 닿을 수 있어야 하는 경로
 const PUBLIC_PATHS = new Set(['/login', '/api/login', '/signup', '/api/signup'])
@@ -10,25 +15,40 @@ export function proxy(request: NextRequest) {
 
   // 프록시는 요청마다 돌므로 DB 를 건드리지 않고 쿠키 서명만 확인한다.
   // 그 사용자가 실제로 존재하는지는 각 라우트가 확인한다.
-  let signedIn = false
+  let session: ReturnType<typeof readSessionToken> = null
   try {
-    signedIn = readSessionToken(request.cookies.get(SESSION_COOKIE)?.value) !== null
+    session = readSessionToken(request.cookies.get(SESSION_COOKIE)?.value)
   } catch {
     // AUTH_SECRET 미설정 등. 확인할 수 없으면 로그인하지 않은 것으로 본다.
-    signedIn = false
+    session = null
+  }
+
+  const signedIn = session !== null
+
+  // 관리자 세션은 30초짜리라, 요청이 올 때마다 다시 30초를 준다.
+  // 창을 닫으면 요청이 끊기므로 그대로 만료된다.
+  const refresh = (response: NextResponse) => {
+    if (!session?.isAdmin) return response
+
+    const token = slideAdminSession(session)
+    if (token) {
+      response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions({ isAdmin: true }))
+    }
+
+    return response
   }
 
   if (PUBLIC_PATHS.has(pathname)) {
     // 이미 로그인한 사람에게 로그인/가입 화면을 다시 보여줄 필요는 없다.
     if (signedIn && (pathname === '/login' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return refresh(NextResponse.redirect(new URL('/', request.url)))
     }
 
     return NextResponse.next()
   }
 
   if (signedIn) {
-    return NextResponse.next()
+    return refresh(NextResponse.next())
   }
 
   // API 는 로그인 화면 HTML 대신 401 을 돌려줘야 클라이언트가 오류를 알아본다.

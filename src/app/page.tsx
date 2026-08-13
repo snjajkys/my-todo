@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
+import AdminSessionKeepalive from "@/components/AdminSessionKeepalive";
 import DiaryRings from "@/components/DiaryRings";
 import LogoutButton from "@/components/LogoutButton";
 import TodayBanner from "@/components/TodayBanner";
@@ -20,6 +21,8 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-8 sm:py-12">
+      {isAdmin && <AdminSessionKeepalive />}
+
       <div className="diary">
         <DiaryRings />
 

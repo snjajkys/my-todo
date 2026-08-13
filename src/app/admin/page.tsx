@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import AdminAccountRow from '@/components/AdminAccountRow'
+import AdminSessionKeepalive from '@/components/AdminSessionKeepalive'
 import DiaryRings from '@/components/DiaryRings'
 import { getAdminUser, listAccounts } from '@/lib/admin'
 
@@ -25,6 +26,8 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-8 sm:py-12">
+      <AdminSessionKeepalive />
+
       <div className="diary">
         <DiaryRings />
 
