@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { validatePassword, validateUsername } from '@/lib/accountRules'
+import { isAdminUsername } from '@/lib/admin'
 import {
   SESSION_COOKIE,
   createSessionToken,
@@ -42,11 +43,14 @@ export async function POST(request: Request) {
     }
 
     // 가입한 사람은 바로 로그인된 상태로 들어간다.
+    // 관리자 아이디로 가입했다면 그때부터 관리자용 짧은 세션을 쓴다.
+    const isAdmin = isAdminUsername(user.username)
+
     const response = NextResponse.json({ ok: true }, { status: 201 })
     response.cookies.set(
       SESSION_COOKIE,
-      createSessionToken(user.id),
-      sessionCookieOptions
+      createSessionToken(user.id, { isAdmin }),
+      sessionCookieOptions({ isAdmin })
     )
 
     return response

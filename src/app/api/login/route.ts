@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { isAdminUsername } from '@/lib/admin'
 import {
   SESSION_COOKIE,
   createSessionToken,
+  expiredSessionCookieOptions,
   sessionCookieOptions,
 } from '@/lib/session'
 import { authenticate } from '@/lib/user'
@@ -24,11 +26,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // 관리자는 창을 닫으면 로그인이 풀리도록 짧은 세션 쿠키를 받는다.
+    const isAdmin = isAdminUsername(user.username)
+
     const response = NextResponse.json({ ok: true })
     response.cookies.set(
       SESSION_COOKIE,
-      createSessionToken(user.id),
-      sessionCookieOptions
+      createSessionToken(user.id, { isAdmin }),
+      sessionCookieOptions({ isAdmin })
     )
 
     return response
@@ -44,7 +49,7 @@ export async function POST(request: Request) {
 // DELETE /api/login - 로그아웃
 export async function DELETE() {
   const response = NextResponse.json({ ok: true })
-  response.cookies.set(SESSION_COOKIE, '', { ...sessionCookieOptions, maxAge: 0 })
+  response.cookies.set(SESSION_COOKIE, '', expiredSessionCookieOptions)
 
   return response
 }

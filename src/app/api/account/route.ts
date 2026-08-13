@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { validatePassword } from '@/lib/accountRules'
-import { getActiveUserId } from '@/lib/currentUser'
+import { isAdminUsername } from '@/lib/admin'
+import { getActiveUserId, getCurrentUser } from '@/lib/currentUser'
 import {
   SESSION_COOKIE,
   createSessionToken,
+  expiredSessionCookieOptions,
   sessionCookieOptions,
 } from '@/lib/session'
 import { changePassword, deleteUser, verifyUserPassword } from '@/lib/user'
@@ -11,11 +13,14 @@ import { changePassword, deleteUser, verifyUserPassword } from '@/lib/user'
 // PATCH /api/account - 비밀번호 변경
 export async function PATCH(request: Request) {
   try {
-    const userId = await getActiveUserId()
+    // 새 쿠키를 다시 내주므로, 관리자인지 판단하려면 아이디까지 필요하다.
+    const user = await getCurrentUser()
 
-    if (userId === null) {
+    if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
     }
+
+    const userId = user.id
 
     const body = (await request.json().catch(() => null)) as {
       currentPassword?: unknown
@@ -44,11 +49,13 @@ export async function PATCH(request: Request) {
     const changedAt = await changePassword(userId, parsed.value)
 
     // 다른 기기의 세션은 모두 끊기므로, 지금 요청한 본인에게는 새 쿠키를 내준다.
+    const isAdmin = isAdminUsername(user.username)
+
     const response = NextResponse.json({ ok: true })
     response.cookies.set(
       SESSION_COOKIE,
-      createSessionToken(userId, changedAt.getTime()),
-      sessionCookieOptions
+      createSessionToken(userId, { issuedAt: changedAt.getTime(), isAdmin }),
+      sessionCookieOptions({ isAdmin })
     )
 
     return response
@@ -86,10 +93,7 @@ export async function DELETE(request: Request) {
 
     // 계정이 사라졌으니 쿠키도 함께 정리한다.
     const response = NextResponse.json({ ok: true })
-    response.cookies.set(SESSION_COOKIE, '', {
-      ...sessionCookieOptions,
-      maxAge: 0,
-    })
+    response.cookies.set(SESSION_COOKIE, '', expiredSessionCookieOptions)
 
     return response
   } catch (error) {

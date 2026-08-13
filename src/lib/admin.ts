@@ -9,17 +9,19 @@ function normalize(value: string) {
   return value.trim().toLowerCase()
 }
 
-/** 로그인한 사용자가 관리자면 그 사용자, 아니면 null. */
-export async function getAdminUser() {
+/** 이 아이디가 관리자로 지정돼 있는가. 지정이 없으면 관리자 기능 자체를 닫는다. */
+export function isAdminUsername(username: string) {
   const configured = process.env.ADMIN_USERNAME
 
-  // 지정돼 있지 않으면 관리자 기능 자체를 닫는다.
-  if (!configured) return null
+  return Boolean(configured) && normalize(username) === normalize(configured!)
+}
 
+/** 로그인한 사용자가 관리자면 그 사용자, 아니면 null. */
+export async function getAdminUser() {
   const user = await getCurrentUser()
   if (!user) return null
 
-  return normalize(user.username) === normalize(configured) ? user : null
+  return isAdminUsername(user.username) ? user : null
 }
 
 /** 관리 화면에 보여줄 목록. 할 일 "내용"은 담지 않고 개수만 센다. */
