@@ -102,3 +102,73 @@ export function describePeriod(
   }
   return { range, label: `종료까지 ${untilEnd}일`, tone: 'active' }
 }
+
+/* ── 달력 화면용 ────────────────────────────────────
+   모두 로컬 시간대 기준이다. 저장은 UTC 자정이지만 "며칠 칸에 놓이는가"는
+   보는 사람의 로컬 날짜라야 하므로, 여기서는 문자열과 로컬 Date 로만 다룬다. */
+
+/** "YYYY-MM-DD" 에서 days 일 뒤(음수면 앞)의 날짜 */
+export function addDays(value: string, days: number): string {
+  const date = fromDateOnly(value)
+  date.setDate(date.getDate() + days)
+  return toLocalDateOnly(date)
+}
+
+// 달력 한 화면은 42칸이지만, 범위 조회 상한(400일)까지는 받아 낼 수 있게 둔다.
+const MAX_SPAN_DAYS = 400
+
+/** from ~ to 사이의 모든 날짜. from 이 to 보다 뒤면 빈 배열. */
+export function eachDate(from: string, to: string): string[] {
+  const dates: string[] = []
+
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    dates.push(d)
+    // 잘못된 입력으로 무한히 도는 일이 없게 상한을 둔다.
+    if (dates.length >= MAX_SPAN_DAYS) break
+  }
+
+  return dates
+}
+
+/** "2026-08-18" -> "2026-08" */
+export function monthOf(value: string): string {
+  return value.slice(0, 7)
+}
+
+/** "YYYY-MM" 에서 delta 달 뒤(음수면 앞) */
+export function shiftMonth(month: string, delta: number): string {
+  const [year, m] = month.split('-').map(Number)
+  const date = new Date(year, m - 1 + delta, 1)
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** "2026년 8월" */
+export function formatMonth(month: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+  }).format(fromDateOnly(`${month}-01`))
+}
+
+/**
+ * 달력 격자가 덮는 범위. 그 달을 감싸는 일요일 ~ 토요일이라 앞뒤 달의 며칠이
+ * 함께 들어온다. 조회 범위도 이 값을 그대로 써야 그 칸들이 비지 않는다.
+ */
+export function monthGridRange(month: string): { from: string; to: string } {
+  const first = fromDateOnly(`${month}-01`)
+  // 0 일은 그 전 달의 말일이다.
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0)
+
+  return {
+    from: addDays(toLocalDateOnly(first), -first.getDay()),
+    to: addDays(toLocalDateOnly(last), 6 - last.getDay()),
+  }
+}
+
+/** 그 날짜가 속한 주 (일요일 ~ 토요일). 달력 격자와 시작 요일을 맞춘다. */
+export function weekRangeOf(value: string): { from: string; to: string } {
+  const from = addDays(value, -fromDateOnly(value).getDay())
+
+  return { from, to: addDays(from, 6) }
+}

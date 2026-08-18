@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getActiveUserId } from '@/lib/currentUser'
 import { prisma } from '@/lib/prisma'
-import { serializeTodo, validateCreate } from '@/lib/todo'
+import {
+  rangeFilter,
+  serializeTodo,
+  validateCreate,
+  validateRange,
+} from '@/lib/todo'
 
 // 프록시가 쿠키 없는 요청을 이미 막지만, 여기서도 확인한다.
 // 프록시 matcher 가 바뀌면 이 경로가 조용히 무방비가 될 수 있다.
@@ -9,13 +14,21 @@ const unauthorized = () =>
   NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
 
 // GET /api/todos - 내 할 일 목록 조회
-export async function GET() {
+// from/to 를 주면 그 기간에 걸치는 것만 (달력 화면), 없으면 전 기간 (오늘 화면)
+export async function GET(request: Request) {
   try {
     const userId = await getActiveUserId()
     if (userId === null) return unauthorized()
 
+    const range = validateRange(new URL(request.url).searchParams)
+    if (!range.ok) {
+      return NextResponse.json({ error: range.error }, { status: 400 })
+    }
+
     const todos = await prisma.todo.findMany({
-      where: { userId },
+      where: range.value
+        ? { userId, ...rangeFilter(range.value) }
+        : { userId },
       orderBy: { createdAt: 'desc' },
     })
 

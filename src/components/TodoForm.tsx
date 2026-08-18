@@ -2,24 +2,41 @@
 
 import { useState, type FormEvent } from 'react'
 import { useToday } from '@/hooks/useToday'
-import { todayDateOnly } from '@/lib/date'
+import { formatShortDate, todayDateOnly } from '@/lib/date'
 import type { TodoInput, TodoType } from '@/types/todo'
 
 type Props = {
   onAdd: (input: TodoInput) => Promise<void>
+  /**
+   * 등록할 기준 날짜. 달력에서 다른 날을 골라 등록할 때 넘긴다. 없으면 오늘.
+   * 이 값이 바뀌면 입력 중인 기간도 새 날짜로 다시 잡혀야 하므로,
+   * 쓰는 쪽에서 key 로도 함께 넘겨 폼을 새로 띄운다.
+   */
+  baseDate?: string | null
 }
 
-const TYPE_OPTIONS: { value: TodoType; label: string; hint: string }[] = [
-  {
-    value: 'TODAY',
-    label: '오늘 할 일',
-    hint: '못 끝내면 다음 날로 넘어와요',
-  },
-  { value: 'PERIOD', label: '기간 할 일', hint: '시작일 ~ 종료일이 있는 일' },
-]
+type TypeOption = { value: TodoType; label: string; hint: string }
 
-export default function TodoForm({ onAdd }: Props) {
+function typeOptions(dayLabel: string, future: boolean): TypeOption[] {
+  return [
+    {
+      value: 'TODAY',
+      label: dayLabel,
+      hint: future ? '그날이 되면 목록에 나타나요' : '못 끝내면 다음 날로 넘어와요',
+    },
+    { value: 'PERIOD', label: '기간 할 일', hint: '시작일 ~ 종료일이 있는 일' },
+  ]
+}
+
+export default function TodoForm({ onAdd, baseDate }: Props) {
   const today = useToday()
+
+  // 서버 렌더링 시점에는 로컬 날짜를 모르므로 null 이다.
+  // 그때 todayDateOnly() 로 메우면 시간대가 다른 기기에서 hydration 이 어긋난다.
+  const base = baseDate ?? today
+  const isFuture = !!(base && today && base > today)
+  const dayLabel =
+    !base || base === today ? '오늘 할 일' : `${formatShortDate(base)} 할 일`
   const [title, setTitle] = useState('')
   const [type, setType] = useState<TodoType>('TODAY')
   const [startDate, setStartDate] = useState('')
@@ -31,11 +48,11 @@ export default function TodoForm({ onAdd }: Props) {
     setType(next)
     setLocalError(null)
 
-    // 기간을 처음 고르면 오늘 날짜로 초기값을 채워 준다.
+    // 기간을 처음 고르면 기준 날짜로 초기값을 채워 준다.
     if (next === 'PERIOD' && !startDate) {
-      const base = today ?? todayDateOnly()
-      setStartDate(base)
-      setEndDate(base)
+      const seed = base ?? todayDateOnly()
+      setStartDate(seed)
+      setEndDate(seed)
     }
   }
 
@@ -63,8 +80,8 @@ export default function TodoForm({ onAdd }: Props) {
       await onAdd({
         title: trimmed,
         type,
-        // 오늘 할 일의 기준 날짜는 사용자의 로컬 "오늘" 이어야 한다.
-        startDate: type === 'PERIOD' ? startDate : (today ?? todayDateOnly()),
+        // 기준 날짜는 사용자의 로컬 날짜여야 한다. 달력에서 온 등록이면 고른 날.
+        startDate: type === 'PERIOD' ? startDate : (base ?? todayDateOnly()),
         endDate: type === 'PERIOD' ? endDate : null,
       })
       // 종류/기간은 연속 입력에 대비해 유지하고 제목만 비운다.
@@ -85,7 +102,7 @@ export default function TodoForm({ onAdd }: Props) {
       <fieldset className="flex flex-col gap-2">
         <legend className="sr-only">할 일 종류</legend>
         <div className="grid grid-cols-2 gap-2">
-          {TYPE_OPTIONS.map((option) => (
+          {typeOptions(dayLabel, isFuture).map((option) => (
             <button
               key={option.value}
               type="button"

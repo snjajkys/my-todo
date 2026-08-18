@@ -257,7 +257,7 @@ export default function TodoApp() {
         <div className="rounded-xl border border-dashed border-border py-14 text-center">
           <p className="font-medium">오늘 표시할 할 일이 없습니다.</p>
           <p className="mt-1 text-sm text-muted">
-            지난 날짜에 끝낸 할 일은 목록에 남지 않습니다.
+            지난 날짜에 끝낸 일과 앞날에 적어 둔 일은 목록에 남지 않습니다.
           </p>
         </div>
       ) : visible.length === 0 ? (

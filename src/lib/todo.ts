@@ -204,3 +204,78 @@ export function validateUpdate(
 
   return { ok: true, value: data }
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// completedAt 은 절대 시각이라, 보는 사람의 로컬 날짜와 최대 26시간까지 어긋난다.
+// 이틀 여유를 두고 넉넉히 담아 오고 정확히 어느 칸인지는 dateKeysOf 가 정한다.
+const SKEW_MS = 2 * DAY_MS
+
+// 달력 한 화면은 6주면 충분하지만, 나중에 넓게 훑는 화면이 생겨도 되도록 넉넉히 둔다.
+const MAX_RANGE_DAYS = 400
+
+export type DateRange = { from: Date; to: Date }
+
+/**
+ * 달력 화면이 보내는 from/to 쿼리를 검증한다.
+ * 둘 다 없으면 null 이고, 그때는 지금까지처럼 전 기간을 조회한다 (오늘 화면).
+ */
+export function validateRange(
+  params: URLSearchParams
+): ValidationResult<DateRange | null> {
+  const rawFrom = params.get('from')
+  const rawTo = params.get('to')
+
+  if (rawFrom === null && rawTo === null) return { ok: true, value: null }
+
+  if (rawFrom === null || rawTo === null) {
+    return { ok: false, error: 'from 과 to 는 함께 보내야 합니다.' }
+  }
+
+  const from = parseDateOnly(rawFrom)
+  const to = parseDateOnly(rawTo)
+
+  if (!from || !to) {
+    return {
+      ok: false,
+      error: '날짜는 YYYY-MM-DD 형식의 실제 날짜여야 합니다.',
+    }
+  }
+
+  if (from.getTime() > to.getTime()) {
+    return { ok: false, error: 'to 는 from 보다 빠를 수 없습니다.' }
+  }
+
+  if ((to.getTime() - from.getTime()) / DAY_MS > MAX_RANGE_DAYS) {
+    return {
+      ok: false,
+      error: `한 번에 조회할 수 있는 기간은 ${MAX_RANGE_DAYS}일까지입니다.`,
+    }
+  }
+
+  return { ok: true, value: { from, to } }
+}
+
+/**
+ * 그 범위의 달력 칸에 놓일 "가능성이 있는" 항목만 고르는 조건.
+ *
+ * 어느 칸에 놓이는지는 로컬 시간대를 아는 클라이언트만 정확히 판단할 수 있으므로,
+ * 여기서는 확실히 쓰이지 않을 것만 걸러 내고 경계는 넉넉하게 잡는다.
+ */
+export function rangeFilter({ from, to }: DateRange) {
+  return {
+    OR: [
+      // 기준일(오늘 할 일) 또는 시작일(기간 할 일)이 범위 안
+      { startDate: { gte: from, lte: to } },
+      // 범위에 걸쳐 있는 기간 할 일 (시작은 이전, 종료는 이후)
+      { startDate: { lte: to }, endDate: { gte: from } },
+      // 범위 안에서 완료한 항목
+      {
+        completedAt: {
+          gte: new Date(from.getTime() - SKEW_MS),
+          lte: new Date(to.getTime() + DAY_MS + SKEW_MS),
+        },
+      },
+    ],
+  }
+}

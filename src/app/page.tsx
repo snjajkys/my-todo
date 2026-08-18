@@ -6,6 +6,7 @@ import DiaryRings from "@/components/DiaryRings";
 import LogoutButton from "@/components/LogoutButton";
 import TodayBanner from "@/components/TodayBanner";
 import TodoApp from "@/components/TodoApp";
+import ViewTabs from "@/components/ViewTabs";
 import { getAdminUser } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/currentUser";
 
@@ -38,7 +39,10 @@ export default async function Home() {
                 MY TODO
               </h1>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted">{user.username}</span>
+                {/* 누구로 들어왔는지가 한눈에 보여야 해서, 옅은 글씨 대신 잉크색 이름표로 둔다 */}
+                <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-semibold text-ink-text">
+                  {user.username}
+                </span>
                 {isAdmin && (
                   <Link
                     href="/admin"
@@ -50,6 +54,9 @@ export default async function Home() {
                 <LogoutButton />
               </div>
             </div>
+
+            <ViewTabs current="today" />
+
             <TodayBanner />
           </header>
 
