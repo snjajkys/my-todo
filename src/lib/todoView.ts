@@ -4,25 +4,39 @@ import { diffInDays, eachDate, localDateOfTimestamp } from './date'
 /**
  * 오늘 날짜 기준으로 목록에 보여줄 항목인지 판단한다.
  *
- * - PERIOD: 언제나 표시 (기간 자체가 표시되므로 날짜로 거르지 않는다)
+ * 완료 여부를 먼저 본다. 종류보다 완료가 먼저다.
+ *
+ * - 완료한 일(종류 무관): "완료한 날"에만 표시.
+ *   어제 끝낸 일이 오늘 완료 칸을 채우지 않게 한다.
+ *
+ *   ※ 예전에는 PERIOD 를 맨 위에서 무조건 통과시켜, 체크한 기간 할 일이
+ *     완료 칸에 영영 남았다. 완료 규칙은 종류를 가리지 않는다.
+ *
+ * - PERIOD(미완료): 언제나 표시. 시작 전이면 "시작까지 N일",
+ *   종료일이 지났는데 아직 못 끝냈으면 "N일 지남" 으로 알린다.
+ *   (`describePeriod` 의 upcoming·overdue 딱지가 이 자리에서 쓰인다)
+ *
  * - TODAY(미완료): 기준 날짜가 지났으면 끝낼 때까지 계속 표시.
  *   즉 오늘 처리하지 못한 일은 다음 날에도 그대로 남는다.
  *   반대로 달력에서 앞날에 미리 적어 둔 일은 그날이 오기 전까지는 넣지 않는다.
  *   미래만 걸러 내므로, 시간대 차이로 기준 날짜가 하루 밀리더라도 항목이
  *   영영 사라지지 않고 늦어도 다음 날에는 목록에 올라온다.
- * - TODAY(완료): "완료한 날"에만 표시. 어제 끝낸 일이 오늘 목록을 채우지 않게 한다.
  */
 export function isVisibleOn(todo: Todo, today: string | null): boolean {
   // 날짜를 아직 모르는 서버 렌더링 시점에는 거르지 않는다.
   if (!today) return true
+
+  if (todo.completed) {
+    const completedOn = todo.completedAt
+      ? localDateOfTimestamp(todo.completedAt)
+      : todo.startDate
+
+    return completedOn === null || completedOn === today
+  }
+
   if (todo.type === 'PERIOD') return true
-  if (!todo.completed) return !todo.startDate || todo.startDate <= today
 
-  const completedOn = todo.completedAt
-    ? localDateOfTimestamp(todo.completedAt)
-    : todo.startDate
-
-  return completedOn === null || completedOn === today
+  return !todo.startDate || todo.startDate <= today
 }
 
 export type CarryOver = {
