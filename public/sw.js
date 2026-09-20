@@ -5,14 +5,59 @@
  * 화면 코드가 들어갈 수 없고, 페이지의 변수도 쓸 수 없다. 받은 내용만으로
  * 알림을 만들 수 있어야 한다.
  *
- * 캐싱(오프라인 기능)은 일부러 넣지 않았다. 지금 필요한 것은 알림뿐이고,
- * 캐싱까지 맡기면 배포한 새 화면이 옛 화면에 가려지는 문제를 따로 다뤄야 한다.
+ * 캐싱은 하지 않는다. 배포한 새 화면이 캐시에 가려지는 문제를 따로 다뤄야 하는데,
+ * 지금 그럴 이유가 없다. 아래 fetch 처리기도 캐시를 쓰지 않는다.
  */
 
 // 배포해도 브라우저가 옛 서비스 워커를 붙잡고 있는 일을 막는다.
 // 새 파일을 받으면 기다리지 않고 바로 교체하고, 열려 있는 탭까지 넘겨받는다.
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
+
+/* ── 화면 이동 가로채기 ──────────────────────────────
+   이게 있어야 크롬이 이 사이트를 "설치할 수 있는 앱"으로 본다.
+
+   처리기가 없으면 홈 화면에 추가해도 진짜 앱(WebAPK)이 아니라 단순 바로가기가
+   만들어진다. 바로가기는 크롬 안에서 실행되기 때문에, 크롬이 "탭하여 이 앱의
+   URL 복사하기" 알림을 앱이 켜져 있는 내내 띄운다. 그 알림은 크롬 것이라
+   끄려고 하면 우리 아침 알림까지 함께 막힌다. 그래서 알림을 끄는 것으로는
+   풀 수 없고, 제대로 설치되게 만드는 수밖에 없다.
+
+   비어 있는 처리기는 크롬이 알아보고 없는 것으로 친다. 그래서 실제로 하는 일을
+   하나 준다 — 네트워크가 끊겼을 때 안내를 돌려주는 것. 화면 이동만 맡고
+   이미지·스크립트·API 요청은 respondWith 를 부르지 않아 브라우저가 평소대로 처리한다. */
+
+const OFFLINE_PAGE = `<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MY TODO</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:#fdfaf3;color:#2f4574;font-family:system-ui,sans-serif;text-align:center;padding:24px}
+  h1{font-size:18px;margin:0 0 8px}
+  p{font-size:14px;color:#6b6257;margin:0 0 20px;line-height:1.6}
+  button{border:1px solid #d9d2c4;background:#fff;color:#2f4574;border-radius:10px;
+         padding:10px 18px;font-size:14px;font-weight:600}
+</style></head>
+<body><div>
+  <h1>연결이 끊겼습니다</h1>
+  <p>인터넷에 닿지 못했습니다.<br>연결을 확인하고 다시 시도해 주세요.</p>
+  <button onclick="location.reload()">다시 시도</button>
+</div></body></html>`
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return
+
+  event.respondWith(
+    fetch(event.request).catch(
+      () =>
+        new Response(OFFLINE_PAGE, {
+          status: 503,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+    )
+  )
+})
 
 self.addEventListener('push', (event) => {
   // 서버가 보내는 것은 항상 JSON 이지만, 형식이 어긋나도 알림은 떠야 한다.
