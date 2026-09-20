@@ -3,7 +3,13 @@
 import { useState, type FormEvent } from 'react'
 import { useToday } from '@/hooks/useToday'
 import { formatShortDate, todayDateOnly } from '@/lib/date'
-import type { TodoInput, TodoType } from '@/types/todo'
+import type { TodoInput, TodoPriority, TodoType } from '@/types/todo'
+
+const PRIORITY_OPTIONS: Array<{ value: TodoPriority; label: string }> = [
+  { value: 'HIGH', label: '높음' },
+  { value: 'MEDIUM', label: '보통' },
+  { value: 'LOW', label: '낮음' },
+]
 
 type Props = {
   onAdd: (input: TodoInput) => Promise<void>
@@ -39,6 +45,7 @@ export default function TodoForm({ onAdd, baseDate }: Props) {
     !base || base === today ? '오늘 할 일' : `${formatShortDate(base)} 할 일`
   const [title, setTitle] = useState('')
   const [type, setType] = useState<TodoType>('TODAY')
+  const [priority, setPriority] = useState<TodoPriority>('MEDIUM')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
@@ -80,6 +87,7 @@ export default function TodoForm({ onAdd, baseDate }: Props) {
       await onAdd({
         title: trimmed,
         type,
+        priority,
         // 기준 날짜는 사용자의 로컬 날짜여야 한다. 달력에서 온 등록이면 고른 날.
         startDate: type === 'PERIOD' ? startDate : (base ?? todayDateOnly()),
         endDate: type === 'PERIOD' ? endDate : null,
@@ -122,6 +130,31 @@ export default function TodoForm({ onAdd, baseDate }: Props) {
           ))}
         </div>
       </fieldset>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted">우선순위</span>
+        <div className="flex gap-2">
+          {PRIORITY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setPriority(option.value)}
+              aria-pressed={priority === option.value}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                priority === option.value
+                  ? option.value === 'HIGH'
+                    ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300'
+                    : option.value === 'LOW'
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
+                  : 'border-border hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {type === 'PERIOD' && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">

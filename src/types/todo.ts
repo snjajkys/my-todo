@@ -1,10 +1,12 @@
 export type TodoType = 'TODAY' | 'PERIOD'
+export type TodoPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export type Todo = {
   id: number
   title: string
   completed: boolean
   type: TodoType
+  priority: TodoPriority
   /**
    * "YYYY-MM-DD"
    * - TODAY: 그 할 일의 기준 날짜(등록한 날)
@@ -22,6 +24,7 @@ export type Todo = {
 export type TodoInput = {
   title: string
   type: TodoType
+  priority: TodoPriority
   startDate: string | null
   endDate: string | null
 }
@@ -32,4 +35,10 @@ export type TypeFilter = 'all' | TodoType
 export const TODO_TYPE_LABEL: Record<TodoType, string> = {
   TODAY: '오늘',
   PERIOD: '기간',
+}
+
+export const TODO_PRIORITY_LABEL: Record<TodoPriority, string> = {
+  LOW: '낮음',
+  MEDIUM: '보통',
+  HIGH: '높음',
 }

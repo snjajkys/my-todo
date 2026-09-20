@@ -8,7 +8,13 @@ import {
   type PeriodTone,
 } from '@/lib/date'
 import { describeCarryOver } from '@/lib/todoView'
-import type { Todo, TodoType } from '@/types/todo'
+import type { Todo, TodoPriority, TodoType } from '@/types/todo'
+
+const PRIORITY_CLASS: Record<TodoPriority, string> = {
+  HIGH: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
+  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300',
+  LOW: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300',
+}
 
 type Props = {
   todo: Todo
@@ -19,6 +25,7 @@ type Props = {
       title?: string
       completed?: boolean
       type?: TodoType
+      priority?: TodoPriority
       startDate?: string | null
       endDate?: string | null
     }
@@ -37,6 +44,7 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(todo.title)
   const [draftType, setDraftType] = useState<TodoType>(todo.type)
+  const [draftPriority, setDraftPriority] = useState<TodoPriority>(todo.priority)
   const [draftStart, setDraftStart] = useState(todo.startDate ?? '')
   const [draftEnd, setDraftEnd] = useState(todo.endDate ?? '')
   const [draftError, setDraftError] = useState<string | null>(null)
@@ -45,6 +53,7 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
   const startEdit = () => {
     setDraftTitle(todo.title)
     setDraftType(todo.type)
+    setDraftPriority(todo.priority)
     setDraftStart(todo.startDate ?? '')
     setDraftEnd(todo.endDate ?? '')
     setDraftError(null)
@@ -89,6 +98,7 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
     const unchanged =
       trimmed === todo.title &&
       draftType === todo.type &&
+      draftPriority === todo.priority &&
       (draftType === 'TODAY'
         ? true
         : draftStart === todo.startDate && draftEnd === todo.endDate)
@@ -103,6 +113,7 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
       await onUpdate(todo.id, {
         title: trimmed,
         type: draftType,
+        priority: draftPriority,
         startDate:
           draftType === 'PERIOD'
             ? draftStart
@@ -165,6 +176,24 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
                 }`}
               >
                 {value === 'TODAY' ? '오늘' : '기간'}
+              </button>
+            ))}
+          </div>
+
+          <div role="group" aria-label="우선순위 수정" className="flex gap-2">
+            {(['HIGH', 'MEDIUM', 'LOW'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDraftPriority(value)}
+                aria-pressed={draftPriority === value}
+                className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold transition ${
+                  draftPriority === value
+                    ? PRIORITY_CLASS[value]
+                    : 'border-border text-muted hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                {value === 'HIGH' ? '높음' : value === 'MEDIUM' ? '보통' : '낮음'}
               </button>
             ))}
           </div>
@@ -243,6 +272,11 @@ export default function TodoItem({ todo, today, onUpdate, onDelete }: Props) {
             }`}
           >
             {todo.type === 'TODAY' ? '오늘' : '기간'}
+          </span>
+          <span
+            className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY_CLASS[todo.priority]}`}
+          >
+            {todo.priority === 'HIGH' ? '높음' : todo.priority === 'MEDIUM' ? '보통' : '낮음'}
           </span>
           <span
             className={`min-w-0 break-words text-sm ${

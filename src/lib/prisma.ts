@@ -3,7 +3,9 @@ import { isIP } from 'node:net'
 import { Client, Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma/client'
-import { SUPABASE_ROOT_CA } from './supabaseCa'
+// import 에 .ts 를 붙여 둔다. 테스트는 node 가 이 파일을 직접 읽어 들이는데,
+// 확장자가 없으면 node 가 경로를 풀지 못해 테스트 전체가 못 돈다 (빌드는 둘 다 된다).
+import { SUPABASE_ROOT_CA } from './supabaseCa.ts'
 
 // 개발 모드에서 HMR로 인해 PrismaClient 인스턴스가 계속 늘어나는 것을 막기 위해
 // globalThis에 캐싱한다.

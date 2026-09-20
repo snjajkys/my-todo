@@ -1,5 +1,7 @@
 import type { Todo } from '@/types/todo'
-import { diffInDays, eachDate, localDateOfTimestamp } from './date'
+// import 에 .ts 를 붙여 둔다. 테스트는 node 가 이 파일을 직접 읽어 들이는데,
+// 확장자가 없으면 node 가 경로를 풀지 못해 테스트 전체가 못 돈다 (빌드는 둘 다 된다).
+import { diffInDays, eachDate, localDateOfTimestamp } from './date.ts'
 
 /**
  * 오늘 날짜 기준으로 목록에 보여줄 항목인지 판단한다.

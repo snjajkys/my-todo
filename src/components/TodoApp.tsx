@@ -87,6 +87,7 @@ export default function TodoApp() {
       title?: string
       completed?: boolean
       type?: TodoType
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH'
       startDate?: string | null
       endDate?: string | null
     }
@@ -157,10 +158,24 @@ export default function TodoApp() {
     [todayTodos, typeFilter]
   )
 
+  const PRIORITY_WEIGHT = { HIGH: 3, MEDIUM: 2, LOW: 1 } as const
+
   const { active, completed } = useMemo(
     () => ({
-      active: visible.filter((t) => !t.completed),
-      completed: visible.filter((t) => t.completed),
+      active: visible
+        .filter((t) => !t.completed)
+        .sort(
+          (a, b) =>
+            PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority] ||
+            Number(b.completed) - Number(a.completed)
+        ),
+      completed: visible
+        .filter((t) => t.completed)
+        .sort(
+          (a, b) =>
+            PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority] ||
+            Number(b.completed) - Number(a.completed)
+        ),
     }),
     [visible]
   )

@@ -1,8 +1,11 @@
 import type { Todo as PrismaTodo } from '@/generated/prisma/client'
-import type { Todo, TodoType } from '@/types/todo'
-import { parseDateOnly, toDateOnly, todayDateOnly } from './date'
+import type { Todo, TodoPriority, TodoType } from '@/types/todo'
+// import 에 .ts 를 붙여 둔다. 테스트는 node 가 이 파일을 직접 읽어 들이는데,
+// 확장자가 없으면 node 가 경로를 풀지 못해 테스트 전체가 못 돈다 (빌드는 둘 다 된다).
+import { parseDateOnly, toDateOnly, todayDateOnly } from './date.ts'
 
 const TODO_TYPES: TodoType[] = ['TODAY', 'PERIOD']
+const TODO_PRIORITIES: TodoPriority[] = ['LOW', 'MEDIUM', 'HIGH']
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -10,11 +13,14 @@ export type ValidationResult<T> =
 
 /** DB 레코드를 API 응답 형태로 변환 (날짜는 "YYYY-MM-DD" 문자열) */
 export function serializeTodo(todo: PrismaTodo): Todo {
+  const priority = isTodoPriority(todo.priority) ? todo.priority : 'MEDIUM'
+
   return {
     id: todo.id,
     title: todo.title,
     completed: todo.completed,
     type: todo.type === 'PERIOD' ? 'PERIOD' : 'TODAY',
+    priority,
     startDate: toDateOnly(todo.startDate),
     endDate: toDateOnly(todo.endDate),
     completedAt: todo.completedAt?.toISOString() ?? null,
@@ -25,6 +31,10 @@ export function serializeTodo(todo: PrismaTodo): Todo {
 
 function isTodoType(value: unknown): value is TodoType {
   return TODO_TYPES.includes(value as TodoType)
+}
+
+function isTodoPriority(value: unknown): value is TodoPriority {
+  return TODO_PRIORITIES.includes(value as TodoPriority)
 }
 
 function normalizeTitle(value: unknown): string {
@@ -96,6 +106,7 @@ function validateDates(
 export type CreateData = {
   title: string
   type: TodoType
+  priority: TodoPriority
   startDate: Date | null
   endDate: Date | null
 }
@@ -114,15 +125,21 @@ export function validateCreate(body: unknown): ValidationResult<CreateData> {
     return { ok: false, error: 'type 은 TODAY 또는 PERIOD 여야 합니다.' }
   }
 
+  const priority = input.priority === undefined ? 'MEDIUM' : input.priority
+  if (!isTodoPriority(priority)) {
+    return { ok: false, error: '우선순위는 LOW, MEDIUM, HIGH 중 하나여야 합니다.' }
+  }
+
   const dates = validateDates(type, input.startDate, input.endDate)
   if (!dates.ok) return dates
 
-  return { ok: true, value: { title, type, ...dates.value } }
+  return { ok: true, value: { title, type, priority, ...dates.value } }
 }
 
 export type UpdateData = Partial<CreateData> & {
   completed?: boolean
   completedAt?: Date | null
+  priority?: TodoPriority
 }
 
 /**
@@ -140,6 +157,7 @@ export function validateUpdate(
     !touched('title') &&
     !touched('completed') &&
     !touched('type') &&
+    !touched('priority') &&
     !touched('startDate') &&
     !touched('endDate')
   ) {
@@ -168,6 +186,13 @@ export function validateUpdate(
     } else {
       data.completedAt = null
     }
+  }
+
+  if (touched('priority')) {
+    if (!isTodoPriority(input.priority)) {
+      return { ok: false, error: '우선순위는 LOW, MEDIUM, HIGH 중 하나여야 합니다.' }
+    }
+    data.priority = input.priority
   }
 
   const type = touched('type') ? input.type : existing.type
