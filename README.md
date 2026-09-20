@@ -45,8 +45,13 @@ npm run dev
 | --- | --- |
 | `npm run build` / `npm start` | 프로덕션 빌드 및 실행 |
 | `npm run lint` | ESLint 검사 |
+| `npm test` | 단위 테스트 (`src/**/*.test.ts`) |
 | `npx prisma studio` | DB 데이터를 브라우저에서 확인/편집 |
 | `npx prisma migrate reset` | DB 초기화 (데이터 전부 삭제) |
+
+테스트는 빌드 도구를 거치지 않고 node 가 `.ts` 파일을 직접 읽습니다. 그래서 테스트가
+닿는 모듈의 상대 경로 import 에는 **확장자를 붙여 둡니다** (`from './date.ts'`).
+떼어 내면 빌드는 그대로 되지만 테스트가 조용히 못 돌게 됩니다.
 
 ## 기능
 
@@ -64,6 +69,7 @@ npm run dev
   - 상태 필터: 전체 · 미완료 · 완료
 - 로딩 상태, 빈 목록 안내 메시지, 에러 메시지 처리
 - 반응형 레이아웃, 다크 모드 대응
+- **아침 알림** — 매일 아침 8시쯤 그날 할 일 요약을 웹 푸시로 보냅니다 (아래 참고)
 
 체크 · 수정 · 삭제는 낙관적 업데이트(optimistic update)로 즉시 화면에 반영하고,
 서버 요청이 실패하면 이전 상태로 되돌리며 에러 메시지를 표시합니다.
@@ -89,6 +95,47 @@ npm run dev
   완료를 해제하면 `null` 로 되돌아갑니다. "완료한 날"을 알아야 지난 날짜의 완료 항목을
   목록에서 내릴 수 있기 때문입니다.
 
+## 아침 알림 (웹 푸시)
+
+매일 아침, 그날 해야 할 일이 있으면 한 개의 알림으로 묶어서 보냅니다.
+
+```
+오늘 할 일 3개
+수업안 정리 · 출장 결재 · 학부모 상담
+```
+
+- **보내는 대상**: 아직 끝내지 않았고 이미 시작한 일. 밀린 오늘 할 일과 진행 중·기간이
+  지난 기간 할 일이 모두 들어가고, 아직 시작하지 않은 앞날의 일은 빠집니다.
+  (판단은 `src/lib/morningDigest.ts` 의 `isDueOn()` 한 곳)
+- **할 일이 없는 날은 보내지 않습니다.** 매일 "오늘은 없습니다"가 오면 알림을 꺼 버리게 되고,
+  그러면 정작 필요한 날에도 못 받기 때문입니다.
+- **켜기/끄기는 기기마다 따로**입니다. 푸시 구독을 브라우저가 기기별로 발급하기 때문입니다.
+  화면 아래 계정 설정에서 켭니다.
+- **아이폰·아이패드는 홈 화면에 추가해야만** 알림이 옵니다. iOS 제약이라 우회할 수 없습니다.
+  사파리 탭으로 열어 둔 상태에서는 켜기 버튼 대신 안내 문구가 나옵니다.
+
+### 시각
+
+크론은 UTC 로 돌기 때문에 `vercel.json` 의 스케줄은 `0 23 * * *` (= 한국 시각 오전 8시)입니다.
+
+| 요금제 | 도착 시각 |
+| --- | --- |
+| Hobby | 8:00 ~ 8:59 사이 (하루 1회 제한, ±59분 오차) |
+| Pro | 8시 정각 |
+
+Pro 로 올려도 코드는 그대로입니다. 시각을 바꾸려면 `vercel.json` 의 `schedule` 만 고칩니다
+(한국 시각에서 9시간을 뺀 값).
+
+### 설정
+
+`.env.example` 의 `VAPID_*` 와 `CRON_SECRET` 을 채우고, 배포 환경에도 같은 값을 넣습니다.
+VAPID 키는 한 번 정하면 바꾸지 않습니다 — 바꾸면 기기마다 알림을 다시 켜야 합니다.
+키가 없으면 알림 기능만 꺼지고 나머지는 그대로 돌아갑니다.
+
+```bash
+node -e "console.log(require('web-push').generateVAPIDKeys())"
+```
+
 ## API
 
 | Method | Endpoint | 설명 |
@@ -97,6 +144,10 @@ npm run dev
 | POST | `/api/todos` | 새 할 일 생성 |
 | PATCH | `/api/todos/[id]` | 제목 · 완료 상태 · 종류 · 기간 수정 (일부만 보내도 됨) |
 | DELETE | `/api/todos/[id]` | 삭제 |
+| GET | `/api/push` | 알림 공개키와 이 계정에 등록된 기기 목록 |
+| POST | `/api/push` | 이 기기로 알림 받기 (켜기) + 확인 알림 1회 발송 |
+| DELETE | `/api/push` | 이 기기의 알림 끄기 |
+| GET | `/api/push/send` | 크론 전용. 알림 켠 모두에게 그날 요약 발송 (`CRON_SECRET` 필요) |
 
 ```jsonc
 // POST - 오늘 할 일 (type 생략 시 TODAY)
@@ -142,7 +193,21 @@ model Todo {
 }
 ```
 
+```prisma
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  endpoint  String   @unique   // 푸시 서비스가 발급한 이 기기의 주소
+  p256dh    String             // 메시지 암호화용 기기 공개키
+  auth      String             // 메시지 암호화용 인증 비밀
+  createdAt DateTime @default(now())
+  userId    Int
+}
+```
+
 > SQLite 는 enum 을 지원하지 않아 `type` 은 문자열로 저장하고 API 계층(`src/lib/todo.ts`)에서 검증합니다.
+>
+> 알림 켜짐/꺼짐은 따로 열을 두지 않고 `PushSubscription` 행이 있느냐 없느냐로 정합니다.
+> 구독이 기기마다 따로 발급되기 때문입니다.
 
 ## 프로젝트 구조
 
@@ -155,6 +220,8 @@ src/
   app/
     api/todos/route.ts         # GET, POST
     api/todos/[id]/route.ts    # PATCH, DELETE
+    api/push/route.ts          # 알림 켜기 / 끄기 / 상태
+    api/push/send/route.ts     # 매일 아침 크론이 부르는 자리
     page.tsx                   # 메인 페이지
     layout.tsx, globals.css
   components/
@@ -162,12 +229,16 @@ src/
     TodoApp.tsx            # 상태 관리 + 목록/필터 렌더링
     TodoForm.tsx           # 종류 선택 + 기간 입력 + 등록
     TodoItem.tsx           # 개별 항목 (체크 / 인라인 수정 / 삭제)
+    PushToggle.tsx         # 아침 알림 켜기 / 끄기 (기기별)
   hooks/useToday.ts        # 로컬 기준 오늘 날짜 (자정 자동 갱신)
   lib/
     prisma.ts              # PrismaClient 싱글턴 (better-sqlite3 드라이버 어댑터)
     date.ts                # 날짜 파싱 / 포맷 / 기간 상태 계산
     todo.ts                # 요청 검증 + 응답 직렬화 (서버)
     todoView.ts            # 오늘 목록 표시 규칙 + 이월 안내 (클라이언트)
+    morningDigest.ts       # 아침 알림에 실을 문구 (KST 기준 "오늘" 판단)
+    push.ts                # 웹 푸시 발송 + 죽은 구독 정리
   types/todo.ts            # 공용 타입
   generated/prisma/        # prisma generate 산출물 (git 미포함)
+public/sw.js               # 알림을 받아 띄우는 서비스 워커
 ```

@@ -23,6 +23,7 @@ model User {
   passwordChangedAt DateTime @default(now())
   createdAt         DateTime @default(now())
   todos             Todo[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Todo {
@@ -54,3 +55,24 @@ model Todo {
   @@index([userId])
 }
 
+/// 아침 알림을 받을 기기 한 대. 브라우저가 내주는 구독 정보를 그대로 담는다.
+///
+/// 알림 켜기/끄기는 이 행이 있느냐 없느냐로 정한다. 따로 on/off 열을 두지 않는 것은
+/// 구독이 기기마다 따로 발급되기 때문이다. 폰에서 껐다고 태블릿까지 꺼지면 곤란하고,
+/// 반대로 열만 꺼두고 구독을 남기면 브라우저가 이미 버린 구독을 계속 들고 있게 된다.
+model PushSubscription {
+  id Int @id @default(autoincrement())
+  /// 푸시 서비스가 발급한 이 기기의 주소. 같은 기기가 다시 구독하면 같은 값이 오므로
+  /// 유일 키로 두고 덮어쓴다. 기기를 바꾸거나 브라우저 데이터를 지우면 새 값이 발급된다.
+  endpoint String @unique
+  /// 메시지를 암호화할 때 쓰는 기기 공개키와 인증 비밀. 브라우저가 준 값 그대로 보관한다.
+  p256dh String
+  auth   String
+  createdAt DateTime @default(now())
+
+  /// 이 기기로 누구의 할 일을 보낼지. 계정이 사라지면 구독도 함께 지운다.
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import ChangePassword from './ChangePassword'
 import DeleteAccount from './DeleteAccount'
+import PushToggle from './PushToggle'
 
 type Panel = 'none' | 'password' | 'delete'
 
@@ -23,6 +24,8 @@ export default function AccountSettings({ username }: { username: string }) {
 
   return (
     <div className="mt-10 border-t border-border pt-6">
+      <PushToggle />
+
       <div className="flex items-center justify-between gap-4">
         <button
           type="button"

@@ -8,7 +8,16 @@ import {
 } from '@/lib/session'
 
 // 로그인하지 않아도 닿을 수 있어야 하는 경로
-const PUBLIC_PATHS = new Set(['/login', '/api/login', '/signup', '/api/signup'])
+//
+// /api/push/send 는 Vercel 크론이 부르는 자리라 쿠키가 없다. 대신 그 안에서
+// CRON_SECRET 을 확인한다. 비밀값이 없으면 통과시키지 않고 막는다.
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/api/login',
+  '/signup',
+  '/api/signup',
+  '/api/push/send',
+])
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
@@ -81,6 +90,10 @@ export const config = {
     // 정적 파일과 메타데이터 파일은 인증 없이 내보낸다.
     // 아이콘과 매니페스트를 빼두지 않으면 로그인 화면과 홈 화면 바로가기에서
     // 아이콘 요청이 로그인으로 돌려보내져 깨진다.
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon|apple-icon|manifest.webmanifest).*)',
+    //
+    // sw.js 도 같은 이유로 뺀다. 브라우저는 서비스 워커를 갱신할 때 페이지와
+    // 별개로 이 파일을 다시 받아 가는데, 그 요청이 로그인 화면 HTML 로 돌아오면
+    // 등록이 통째로 깨져 알림이 조용히 멈춘다.
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sw.js|icon|apple-icon|manifest.webmanifest).*)',
   ],
 }

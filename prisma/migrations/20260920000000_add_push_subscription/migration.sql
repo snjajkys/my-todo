@@ -1,0 +1,26 @@
+-- 아침 알림을 받을 기기 목록.
+--
+-- anon / authenticated 권한은 따로 회수하지 않는다. 20260815040000_revoke_data_api_access
+-- 에서 ALTER DEFAULT PRIVILEGES 로 막아 두었으므로, postgres 가 만드는 이 테이블에도
+-- 그 기본값이 그대로 적용된다.
+
+-- CreateTable
+CREATE TABLE "PushSubscription" (
+    "id" SERIAL NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "userId" INTEGER NOT NULL,
+
+    CONSTRAINT "PushSubscription_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PushSubscription_endpoint_key" ON "PushSubscription"("endpoint");
+
+-- CreateIndex
+CREATE INDEX "PushSubscription_userId_idx" ON "PushSubscription"("userId");
+
+-- AddForeignKey
+ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
