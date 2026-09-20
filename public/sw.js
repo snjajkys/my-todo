@@ -30,8 +30,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
+      // 큰 아이콘. 알림 안에 원래 색 그대로 보인다.
       icon: '/icon',
-      badge: '/icon-maskable',
+      // 상태 표시줄의 작은 아이콘. 안드로이드가 알파 채널만 읽어 실루엣으로
+      // 쓰므로 배경 없는 전용 그림이라야 한다. 앱 아이콘을 여기 주면 배경까지
+      // 실루엣이 되어 검은 네모가 뜬다.
+      badge: '/icon-badge',
       // 같은 tag 의 알림은 서로를 덮어쓴다. 며칠치가 쌓이지 않게 한다.
       tag: data.tag || 'my-todo',
       // 알림을 누르면 어디로 갈지. notificationclick 에서 꺼내 쓴다.
