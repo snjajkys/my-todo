@@ -55,15 +55,15 @@ test('엉뚱한 응답에도 터지지 않는다', () => {
   assert.deepEqual(readItems('<xml>오류</xml>'), [])
 })
 
-test('쉬지 않는 국경일은 걸러 낸다', () => {
-  // 제헌절은 국경일이지만 2008년부터 공휴일이 아니다.
-  // isHoliday 를 안 보면 달력에 쉬지 않는 날이 빨갛게 찍힌다.
+test('isHoliday 가 N 인 날은 걸러 낸다', () => {
+  // 어느 날이 쉬는 날인지는 우리가 판단하지 않는다. API 가 말해 주는 대로 따른다.
+  // 여기서 검증하는 것은 "그 필드를 실제로 보고 있는가" 하나다.
   const payload = {
     response: {
       body: {
         items: {
           item: [
-            { locdate: 20260717, dateName: '제헌절', isHoliday: 'N' },
+            { locdate: 20260717, dateName: '쉬지 않는 날', isHoliday: 'N' },
             { locdate: 20260815, dateName: '광복절', isHoliday: 'Y' },
           ],
         },

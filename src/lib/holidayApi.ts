@@ -84,8 +84,13 @@ export function toDateOnly(locdate: unknown): string | null {
 /**
  * 응답 본문에서 "실제로 쉬는 날"만 골라낸다.
  *
- * `isHoliday` 를 반드시 본다. 이 API 는 국경일도 함께 주는데 그중 제헌절은
- * 2008년부터 공휴일이 아니다. 이 한 줄이 없으면 달력에 쉬지 않는 날이 빨갛게 찍힌다.
+ * `isHoliday` 를 반드시 본다. 이 API 는 쉬지 않는 날도 함께 주기 때문이고,
+ * 어느 날이 어느 쪽인지는 우리가 판단하지 않는다. 그게 이 필드의 쓸모다.
+ *
+ * 판단하지 않는 것이 왜 중요한지 실제로 겪었다. 이 코드를 쓸 때 "제헌절은
+ * 2008년부터 공휴일이 아니다"라고 주석에 적어 두었는데, 키를 넣고 받아 보니
+ * 2026년 제헌절이 `isHoliday: "Y"` 로 왔고 2027년에는 대체공휴일까지 붙어 있었다.
+ * 그새 법이 바뀐 것이다. 사람이 외워 둔 공휴일 지식은 이렇게 조용히 낡는다.
  */
 export function parseHolidays(payload: unknown): PublicHolidayRow[] {
   const rows: PublicHolidayRow[] = []
