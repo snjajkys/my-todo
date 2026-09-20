@@ -14,13 +14,17 @@ import { diffInDays, eachDate, localDateOfTimestamp } from './date.ts'
  *   ※ 예전에는 PERIOD 를 맨 위에서 무조건 통과시켜, 체크한 기간 할 일이
  *     완료 칸에 영영 남았다. 완료 규칙은 종류를 가리지 않는다.
  *
- * - PERIOD(미완료): 언제나 표시. 시작 전이면 "시작까지 N일",
- *   종료일이 지났는데 아직 못 끝냈으면 "N일 지남" 으로 알린다.
- *   (`describePeriod` 의 upcoming·overdue 딱지가 이 자리에서 쓰인다)
+ * - 미완료(종류 무관): 기준 날짜(TODAY) 또는 시작일(PERIOD)이 오늘이거나
+ *   지났으면 끝낼 때까지 계속 표시. 오늘 처리하지 못한 일은 다음 날에도 그대로
+ *   남고, 종료일이 지난 기간 할 일도 "N일 지남" 딱지를 달고 남는다.
+ *   반대로 앞날에 미리 적어 둔 일은 그날이 오기 전까지 넣지 않는다.
  *
- * - TODAY(미완료): 기준 날짜가 지났으면 끝낼 때까지 계속 표시.
- *   즉 오늘 처리하지 못한 일은 다음 날에도 그대로 남는다.
- *   반대로 달력에서 앞날에 미리 적어 둔 일은 그날이 오기 전까지는 넣지 않는다.
+ *   ※ 예전에는 PERIOD 만 시작 전에도 "시작까지 N일" 로 통과시켰다. 그러면
+ *     다음 주 일정을 적는 순간부터 오늘 목록에 올라와, 앞날 오늘 할 일은 숨고
+ *     앞날 기간 할 일만 보이는 어긋남이 생겼다. 아침 알림(`isDueOn`)은 처음부터
+ *     "시작한 것만" 이었으므로 화면을 그쪽에 맞췄다. `describePeriod` 의
+ *     upcoming 딱지는 주간·달력 화면의 앞날 칸에서 계속 쓰인다.
+ *
  *   미래만 걸러 내므로, 시간대 차이로 기준 날짜가 하루 밀리더라도 항목이
  *   영영 사라지지 않고 늦어도 다음 날에는 목록에 올라온다.
  */
@@ -36,8 +40,7 @@ export function isVisibleOn(todo: Todo, today: string | null): boolean {
     return completedOn === null || completedOn === today
   }
 
-  if (todo.type === 'PERIOD') return true
-
+  // 날짜 없는 항목은 예전 데이터에만 있다. 묻어 두기보다 보여 주는 편이 낫다.
   return !todo.startDate || todo.startDate <= today
 }
 
