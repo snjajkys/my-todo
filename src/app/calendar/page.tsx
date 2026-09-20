@@ -31,7 +31,12 @@ export default async function CalendarPage() {
                 </span>
                 달력
               </h1>
-              <div className="flex items-center gap-3">
+              {/* ml-auto 는 좁은 화면 때문이다. 이 묶음이 제목 아래로 밀려 내려가면
+                  바로 밑의 화면 이동 단추와 세로로 겹쳐, 달력을 누르려다 로그아웃이
+                  눌리는 일이 있었다. 단추들은 왼쪽에서 시작하므로 이 묶음을 오른쪽
+                  끝으로 보내면 자리가 갈린다. 한 줄에 다 들어가는 넓은 화면에서는
+                  justify-between 이 이미 하던 일이라 보이는 결과가 달라지지 않는다. */}
+              <div className="ml-auto flex items-center gap-3">
                 <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-semibold text-ink-text">
                   {user.username}
                 </span>
