@@ -70,6 +70,7 @@ npm run dev
 - 로딩 상태, 빈 목록 안내 메시지, 에러 메시지 처리
 - 반응형 레이아웃, 다크 모드 대응
 - **아침 알림** — 매일 아침 8시쯤 그날 할 일 요약을 웹 푸시로 보냅니다 (아래 참고)
+- **휴일 표시** — 달력·주간·메인에 토·일·공휴일·직접 넣은 휴일을 색으로 구분합니다 (아래 참고)
 
 체크 · 수정 · 삭제는 낙관적 업데이트(optimistic update)로 즉시 화면에 반영하고,
 서버 요청이 실패하면 이전 상태로 되돌리며 에러 메시지를 표시합니다.
@@ -136,6 +137,48 @@ VAPID 키는 한 번 정하면 바꾸지 않습니다 — 바꾸면 기기마다
 node -e "console.log(require('web-push').generateVAPIDKeys())"
 ```
 
+## 휴일 표시
+
+달력 격자, 주간 보기의 날짜 줄, 메인의 오늘 날짜표에 같은 규칙으로 색이 붙습니다.
+
+| 종류 | 색 | 이름 | 출처 |
+| --- | --- | --- | --- |
+| 일요일 | 빨강 | 없음 | 날짜 계산 |
+| 토요일 | 파랑 | 없음 | 날짜 계산 |
+| 법정공휴일 | 빨강 | "삼일절" 등 | 공공데이터포털 |
+| 직접 넣은 휴일 | 주황 | 직접 입력 | `CustomHoliday` |
+
+우선순위는 **직접 넣은 휴일 > 법정공휴일 > 주말** 입니다. 일요일에 걸린 삼일절이
+이름 없는 일요일로 보이면 안 되기 때문입니다. 판단은 `src/lib/holiday.ts` 의
+`markOf()` 한 곳에 모여 있습니다.
+
+### 왜 공휴일을 코드에 적어 두지 않는가
+
+설날·추석·부처님오신날은 음력이라 해마다 옮겨 다니고, 대체공휴일 규칙은 법이
+바뀌면 같이 바뀌며, 임시공휴일은 연중에 갑자기 생깁니다. 표로 적어 두면 언젠가
+반드시 틀리고, 틀린 걸 아무도 알아채지 못한 채로 남습니다.
+
+> 이 기능을 만들며 공휴일 목록 사이트 두 곳을 확인했는데 **둘 다 틀렸습니다.**
+> 하나는 2008년에 폐지된 제헌절을 공휴일로, 다른 하나는 대체공휴일 대상이 아닌
+> 현충일에 대체공휴일을 붙여 두었습니다.
+
+그래서 [공공데이터포털 한국천문연구원 특일 정보](https://www.data.go.kr/tcs/dss/selectApiDataDetailView.do?publicDataPk=15012690)에서
+받아 `PublicHoliday` 에 저장하고, **일주일에 한 번** 다시 받습니다(임시공휴일 때문).
+달력이 어떤 범위를 물으면 그 범위에 걸친 해가 오래됐는지 보고 필요할 때만 받아옵니다.
+
+`HOLIDAY_API_KEY` 가 없으면 **법정공휴일만 비고 나머지는 그대로 동작합니다.**
+API 가 멈춰 있어도 가지고 있던 데이터로 그립니다 — 휴일 때문에 달력이 안 나오는
+일은 없습니다.
+
+### 직접 넣는 휴일
+
+재량휴업일·개교기념일처럼 어떤 공공 데이터에도 없는 날을 위한 것입니다.
+달력에서 날짜를 고르면 "+ 이 날을 휴일로" 가 나옵니다.
+
+**사람마다 따로 저장됩니다.** 같은 앱을 쓰더라도 다니는 학교가 다를 수 있어,
+한 사람의 재량휴업일이 남의 달력까지 빨갛게 만들면 곤란하기 때문입니다.
+법정공휴일과 주말은 여기서 지울 수 없습니다.
+
 ## API
 
 | Method | Endpoint | 설명 |
@@ -148,6 +191,9 @@ node -e "console.log(require('web-push').generateVAPIDKeys())"
 | POST | `/api/push` | 이 기기로 알림 받기 (켜기) + 확인 알림 1회 발송 |
 | DELETE | `/api/push` | 이 기기의 알림 끄기 |
 | GET | `/api/push/send` | 크론 전용. 알림 켠 모두에게 그날 요약 발송 (`CRON_SECRET` 필요) |
+| GET | `/api/holidays?from=&to=` | 그 범위의 법정공휴일 + 내가 넣은 휴일 |
+| POST | `/api/holidays` | 이 날을 내 휴일로 (`{ date, name }`) |
+| DELETE | `/api/holidays` | 직접 넣은 휴일 해제 (`{ date }`) |
 
 ```jsonc
 // POST - 오늘 할 일 (type 생략 시 TODAY)
@@ -204,6 +250,30 @@ model PushSubscription {
 }
 ```
 
+```prisma
+model PublicHoliday {           // 법정공휴일 (전역)
+  date String @id               // "YYYY-MM-DD"
+  name String
+}
+
+model HolidaySync {             // 연도별 마지막 동기화 시각
+  year     Int      @id
+  syncedAt DateTime @default(now())
+}
+
+model CustomHoliday {           // 직접 넣은 휴일 (사람마다 따로)
+  id     Int    @id @default(autoincrement())
+  date   String
+  name   String
+  userId Int
+  @@unique([userId, date])
+}
+```
+
+> 휴일의 날짜만 `DateTime` 이 아니라 `String("YYYY-MM-DD")` 입니다. 휴일은 시각이
+> 아예 없는 순수한 달력 날짜이고, `DateTime` 으로 두면 저장할 때 자정을 붙였다가
+> 읽을 때 떼는 왕복이 매번 생기기 때문입니다.
+
 > SQLite 는 enum 을 지원하지 않아 `type` 은 문자열로 저장하고 API 계층(`src/lib/todo.ts`)에서 검증합니다.
 >
 > 알림 켜짐/꺼짐은 따로 열을 두지 않고 `PushSubscription` 행이 있느냐 없느냐로 정합니다.
@@ -222,6 +292,7 @@ src/
     api/todos/[id]/route.ts    # PATCH, DELETE
     api/push/route.ts          # 알림 켜기 / 끄기 / 상태
     api/push/send/route.ts     # 매일 아침 크론이 부르는 자리
+    api/holidays/route.ts      # 휴일 조회 / 직접 등록 / 해제
     page.tsx                   # 메인 페이지
     layout.tsx, globals.css
   components/
@@ -230,7 +301,9 @@ src/
     TodoForm.tsx           # 종류 선택 + 기간 입력 + 등록
     TodoItem.tsx           # 개별 항목 (체크 / 인라인 수정 / 삭제)
     PushToggle.tsx         # 아침 알림 켜기 / 끄기 (기기별)
+    HolidayEditor.tsx      # 이 날을 직접 휴일로
   hooks/useToday.ts        # 로컬 기준 오늘 날짜 (자정 자동 갱신)
+  hooks/useHolidays.ts     # 범위 안의 휴일 + 직접 등록/해제
   lib/
     prisma.ts              # PrismaClient 싱글턴 (better-sqlite3 드라이버 어댑터)
     date.ts                # 날짜 파싱 / 포맷 / 기간 상태 계산
@@ -238,6 +311,9 @@ src/
     todoView.ts            # 오늘 목록 표시 규칙 + 이월 안내 (클라이언트)
     morningDigest.ts       # 아침 알림에 실을 문구 (KST 기준 "오늘" 판단)
     push.ts                # 웹 푸시 발송 + 죽은 구독 정리
+    holiday.ts             # 휴일 판단과 색 (순수 계산)
+    holidayApi.ts          # 공공데이터포털 응답 읽기
+    holidaySync.ts         # 받아 온 공휴일 저장 + 재동기화 판단
   types/todo.ts            # 공용 타입
   generated/prisma/        # prisma generate 산출물 (git 미포함)
 public/sw.js               # 알림을 받아 띄우는 서비스 워커

@@ -1,9 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useHolidays } from '@/hooks/useHolidays'
 import { useToday } from '@/hooks/useToday'
 import { useTodoRange } from '@/hooks/useTodoRange'
 import { addDays, eachDate, formatShortDate, weekRangeOf } from '@/lib/date'
+import { MARK_BADGE_CLASS, MARK_TEXT_CLASS, markOf } from '@/lib/holiday'
+import HolidayEditor from './HolidayEditor'
 import TodoForm from './TodoForm'
 import TodoItem from './TodoItem'
 
@@ -20,6 +23,7 @@ export default function WeekView() {
   const week = useMemo(() => (anchor ? weekRangeOf(anchor) : null), [anchor])
 
   const { byDate, loading, error, add, update, remove } = useTodoRange(week)
+  const { holidays, holidayError, markCustom, clearCustom } = useHolidays(week)
 
   const days = useMemo(
     () => (week ? eachDate(week.from, week.to) : []),
@@ -79,12 +83,12 @@ export default function WeekView() {
         </button>
       </div>
 
-      {error && (
+      {(error || holidayError) && (
         <p
           role="alert"
           className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
         >
-          {error}
+          {error ?? holidayError}
         </p>
       )}
 
@@ -96,17 +100,33 @@ export default function WeekView() {
         {days.map((date) => {
           const items = byDate.get(date) ?? []
           const active = items.filter((t) => !t.completed).length
+          const mark = markOf(date, holidays)
 
           return (
             <section key={date}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-1.5">
                 <h3 className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold">
-                  <span className={date === today ? 'text-ink-text' : ''}>
+                  <span
+                    className={
+                      date === today
+                        ? 'text-ink-text'
+                        : mark
+                          ? MARK_TEXT_CLASS[mark.kind]
+                          : ''
+                    }
+                  >
                     {formatShortDate(date)}
                   </span>
                   {date === today && (
                     <span className="rounded-md bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-white">
                       오늘
+                    </span>
+                  )}
+                  {mark?.name && (
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${MARK_BADGE_CLASS[mark.kind]}`}
+                    >
+                      {mark.name}
                     </span>
                   )}
                   {items.length > 0 && (
@@ -129,9 +149,17 @@ export default function WeekView() {
               </div>
 
               {addingOn === date && (
-                <div className="mb-2">
+                <div className="mb-2 flex flex-col gap-2">
                   {/* 날짜가 바뀌면 입력 중이던 기간도 새 날짜로 다시 잡히도록 새로 띄운다 */}
                   <TodoForm key={date} baseDate={date} onAdd={add} />
+                  {/* 휴일 등록은 "+ 추가"를 펼쳤을 때만 보인다. 일곱 줄마다 링크가
+                      하나씩 붙으면 주간 화면이 링크로 뒤덮인다. */}
+                  <HolidayEditor
+                    date={date}
+                    mark={mark}
+                    onMark={markCustom}
+                    onClear={clearCustom}
+                  />
                 </div>
               )}
 

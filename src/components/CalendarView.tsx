@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useHolidays } from '@/hooks/useHolidays'
 import { useToday } from '@/hooks/useToday'
 import { useTodoRange } from '@/hooks/useTodoRange'
 import {
@@ -11,7 +12,14 @@ import {
   monthOf,
   shiftMonth,
 } from '@/lib/date'
+import {
+  MARK_BADGE_CLASS,
+  MARK_TEXT_CLASS,
+  markOf,
+  weekdayHeaderClass,
+} from '@/lib/holiday'
 import type { Todo } from '@/types/todo'
+import HolidayEditor from './HolidayEditor'
 import TodoForm from './TodoForm'
 import TodoItem from './TodoItem'
 
@@ -42,10 +50,12 @@ export default function CalendarView() {
   const grid = useMemo(() => (month ? monthGridRange(month) : null), [month])
 
   const { byDate, loading, error, add, update, remove } = useTodoRange(grid)
+  const { holidays, holidayError, markCustom, clearCustom } = useHolidays(grid)
 
   const days = useMemo(() => (grid ? eachDate(grid.from, grid.to) : []), [grid])
 
   const selectedItems = (selected && byDate.get(selected)) || []
+  const selectedMark = selected ? markOf(selected, holidays) : null
 
   const goMonth = (delta: number) => {
     if (!month) return
@@ -121,12 +131,12 @@ export default function CalendarView() {
         </button>
       </div>
 
-      {error && (
+      {(error || holidayError) && (
         <p
           role="alert"
           className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
         >
-          {error}
+          {error ?? holidayError}
         </p>
       )}
 
@@ -135,13 +145,7 @@ export default function CalendarView() {
           {WEEKDAYS.map((label, i) => (
             <div
               key={label}
-              className={`py-1 text-center text-xs font-medium ${
-                i === 0
-                  ? 'text-red-500 dark:text-red-400'
-                  : i === 6
-                    ? 'text-ink-text'
-                    : 'text-muted'
-              }`}
+              className={`py-1 text-center text-xs font-medium ${weekdayHeaderClass(i)}`}
             >
               {label}
             </div>
@@ -156,6 +160,7 @@ export default function CalendarView() {
           {days.map((date) => {
             const items = byDate.get(date) ?? []
             const inMonth = monthOf(date) === month
+            const mark = markOf(date, holidays)
 
             return (
               <button
@@ -163,7 +168,13 @@ export default function CalendarView() {
                 type="button"
                 onClick={() => setPickedDate(date)}
                 aria-pressed={date === selected}
-                aria-label={formatFullDate(date)}
+                // 색만으로 알리면 색을 구별하기 어려운 사람에게는 아무 표시가 없는
+                // 것과 같다. 읽어 주는 이름에 휴일이라는 사실을 담는다.
+                aria-label={
+                  mark
+                    ? `${formatFullDate(date)} ${mark.name ?? '휴일'}`
+                    : formatFullDate(date)
+                }
                 className={`flex aspect-square flex-col items-center justify-center rounded-lg border text-sm transition ${
                   date === selected
                     ? 'border-ink bg-ink-soft'
@@ -174,11 +185,24 @@ export default function CalendarView() {
                   className={
                     date === today
                       ? 'flex h-6 w-6 items-center justify-center rounded-full bg-ink text-white'
-                      : ''
+                      : mark
+                        ? MARK_TEXT_CLASS[mark.kind]
+                        : ''
                   }
                 >
                   {Number(date.slice(8))}
                 </span>
+
+                {/* 이름이 있는 휴일만 한 줄 더 쓴다. 주말까지 "토요일"이라고 적으면
+                    격자가 글자로 가득 차 정작 할 일 점이 안 보인다. */}
+                {mark?.name && (
+                  <span
+                    className={`mt-0.5 w-full truncate px-0.5 text-center text-[9px] leading-tight ${MARK_TEXT_CLASS[mark.kind]}`}
+                  >
+                    {mark.name}
+                  </span>
+                )}
+
                 {renderDots(items)}
               </button>
             )
@@ -198,6 +222,9 @@ export default function CalendarView() {
             <span className="h-1.5 w-1.5 rounded-full bg-muted/40" />
             완료
           </span>
+          <span className={MARK_TEXT_CLASS.public}>공휴일 · 일요일</span>
+          <span className={MARK_TEXT_CLASS.saturday}>토요일</span>
+          <span className={MARK_TEXT_CLASS.custom}>직접 넣은 휴일</span>
         </p>
       </div>
 
@@ -206,6 +233,13 @@ export default function CalendarView() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold">
               {formatFullDate(selected)}
+              {selectedMark?.name && (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${MARK_BADGE_CLASS[selectedMark.kind]}`}
+                >
+                  {selectedMark.name}
+                </span>
+              )}
               <span className="font-normal text-muted">
                 {selectedItems.length}개
               </span>
@@ -226,6 +260,16 @@ export default function CalendarView() {
               <TodoForm key={selected} baseDate={selected} onAdd={add} />
             </div>
           )}
+
+          <div className="mb-3">
+            <HolidayEditor
+              key={selected}
+              date={selected}
+              mark={selectedMark}
+              onMark={markCustom}
+              onClear={clearCustom}
+            />
+          </div>
 
           {selectedItems.length > 0 ? (
             <ul className="flex flex-col gap-2">
