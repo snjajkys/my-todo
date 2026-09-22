@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildMorningDigest, isDueOn, todayInKst } from './morningDigest.ts'
+import {
+  buildMorningDigest,
+  isDueOn,
+  secondsLeftInKstDay,
+  todayInKst,
+} from './morningDigest.ts'
 import type { Todo } from '../types/todo.ts'
 
 const base: Todo = {
@@ -28,6 +33,18 @@ test('크론이 도는 UTC 23시는 한국의 다음 날 아침이다', () => {
 test('Hobby 크론이 한 시간 늦게 돌아도 같은 날로 본다', () => {
   // 8:00 에 돌든 8:59 에 돌든 한국 날짜는 그대로여야 한다.
   assert.equal(todayInKst(new Date('2026-09-20T23:59:00.000Z')), '2026-09-21')
+})
+
+test('아침 알림은 그날 자정까지만 살려 둔다', () => {
+  // UTC 23:00 = 한국 아침 8시. 자정까지 16시간 남는다.
+  assert.equal(
+    secondsLeftInKstDay(new Date('2026-09-20T23:00:00.000Z')),
+    16 * 60 * 60
+  )
+
+  // 크론이 8:59 에 돌아도 값은 0 보다 커야 한다. 0 을 주면 푸시 서비스가
+  // "지금 못 보내면 버려라" 로 읽어, 절전 중인 폰이 알림을 통째로 잃는다.
+  assert.ok(secondsLeftInKstDay(new Date('2026-09-20T14:59:59.000Z')) > 0)
 })
 
 test('완료한 일은 알리지 않는다', () => {

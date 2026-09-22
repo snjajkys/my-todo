@@ -20,6 +20,21 @@ export function todayInKst(now: Date = new Date()): string {
   return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10)
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 지금부터 한국 시각 자정까지 남은 초.
+ *
+ * 아침 알림을 푸시 서비스가 얼마나 들고 있어도 되는지 정하는 데 쓴다.
+ * "오늘 할 일 3개" 는 오늘이 지나면 틀린 말이 되므로, 그때까지 못 보냈으면
+ * 버리게 하는 편이 낫다.
+ */
+export function secondsLeftInKstDay(now: Date = new Date()): number {
+  const sinceMidnight = (now.getTime() + KST_OFFSET_MS) % DAY_MS
+
+  return Math.round((DAY_MS - sinceMidnight) / 1000)
+}
+
 /**
  * 아침에 알려 줄 할 일인지 판단한다.
  *

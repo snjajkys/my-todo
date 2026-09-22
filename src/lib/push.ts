@@ -6,7 +6,12 @@ import {
 } from 'web-push'
 import { prisma } from '@/lib/prisma'
 import { parseDateOnly } from '@/lib/date'
-import { buildMorningDigest, todayInKst, type Digest } from '@/lib/morningDigest'
+import {
+  buildMorningDigest,
+  secondsLeftInKstDay,
+  todayInKst,
+  type Digest,
+} from '@/lib/morningDigest'
 import { serializeTodo } from '@/lib/todo'
 
 /* ------------------------------------------------------------------ *
@@ -77,18 +82,42 @@ function toWebPush(sub: StoredSubscription): WebPushSubscription {
 }
 
 /**
+ * 아직 배달되지 않은 알림끼리 덮어쓰게 하는 값.
+ *
+ * `tag` 는 이미 화면에 뜬 알림끼리 덮어쓰고, `Topic` 은 푸시 서비스가 들고만 있는
+ * 알림끼리 덮어쓴다. 뜻이 같으니 같은 값을 쓴다. 다만 Topic 에는 영문·숫자·`-`·`_`
+ * 32자까지만 허용되고 그 밖의 글자를 주면 web-push 가 예외를 던지므로 다듬는다.
+ */
+function toTopic(tag: string): string | undefined {
+  const cleaned = tag.replace(/[^A-Za-z0-9\-_]/g, '-').slice(0, 32)
+
+  return cleaned || undefined
+}
+
+/**
  * 기기 한 대로 보낸다.
  *
  * 404/410 은 그 구독이 사라졌다는 뜻이다(앱을 지웠거나, 브라우저 데이터를 비웠거나,
  * 푸시 서비스가 정리했거나). 그때는 DB 에서도 지운다. 남겨 두면 매일 아침
  * 죽은 주소로 요청을 보내게 되고, 사용자 화면에는 "켜짐"으로 잘못 남는다.
+ *
+ * `ttl` 은 푸시 서비스가 이 알림을 최대 몇 초까지 들고 있어도 되는지다.
  */
 async function sendOne(
   sub: StoredSubscription,
-  payload: PushPayload
+  payload: PushPayload,
+  ttl: number
 ): Promise<boolean> {
   try {
-    await sendNotification(toWebPush(sub), JSON.stringify(payload))
+    await sendNotification(toWebPush(sub), JSON.stringify(payload), {
+      // 급한 알림이라고 알려 준다. 이 값을 주지 않으면 normal 로 나가는데,
+      // 안드로이드(FCM)는 normal 을 절전(Doze) 중에 쌓아 두었다가 기기가 깨어날 때
+      // 한꺼번에 풀어 놓는다. 아침 8시대에 보낸 알림이 정작 앱을 켠 순간에 뜨던
+      // 이유가 이것이다. high 는 절전 중에도 바로 깨워 띄운다.
+      urgency: 'high',
+      TTL: ttl,
+      topic: toTopic(payload.tag),
+    })
     return true
   } catch (error) {
     if (error instanceof WebPushError && [404, 410].includes(error.statusCode)) {
@@ -105,10 +134,16 @@ async function sendOne(
   }
 }
 
-/** 한 사람의 모든 기기로 보낸다. 실제로 닿은 기기 수를 돌려준다. */
+/**
+ * 한 사람의 모든 기기로 보낸다. 실제로 닿은 기기 수를 돌려준다.
+ *
+ * 기본 `ttl` 은 한 시간이다. 이 길로 나가는 것은 알림을 켠 직후 보내는 확인용
+ * 알림이라, 지금 오지 않으면 의미가 없다.
+ */
 export async function sendToUser(
   userId: number,
-  payload: PushPayload
+  payload: PushPayload,
+  ttl: number = 60 * 60
 ): Promise<number> {
   configure()
 
@@ -117,7 +152,7 @@ export async function sendToUser(
     select: { id: true, endpoint: true, p256dh: true, auth: true },
   })
 
-  const results = await Promise.all(subs.map((sub) => sendOne(sub, payload)))
+  const results = await Promise.all(subs.map((sub) => sendOne(sub, payload, ttl)))
 
   return results.filter(Boolean).length
 }
@@ -164,6 +199,9 @@ export async function runMorningPush(now: Date = new Date()): Promise<MorningRun
 
   const today = todayInKst(now)
 
+  // 오늘 안에 못 닿으면 버린다. 어제 아침 요약이 다음 날 배달되는 편보다 낫다.
+  const ttl = secondsLeftInKstDay(now)
+
   const subs = await prisma.pushSubscription.findMany({
     select: { id: true, endpoint: true, p256dh: true, auth: true, userId: true },
   })
@@ -185,13 +223,17 @@ export async function runMorningPush(now: Date = new Date()): Promise<MorningRun
 
     const results = await Promise.all(
       userSubs.map((sub) =>
-        sendOne(sub, {
-          title: digest.title,
-          body: digest.body,
-          url: '/',
-          // 날짜를 빼고 고정값으로 둔다. 어제 알림이 남아 있으면 오늘 것이 덮어쓴다.
-          tag: 'morning-digest',
-        })
+        sendOne(
+          sub,
+          {
+            title: digest.title,
+            body: digest.body,
+            url: '/',
+            // 날짜를 빼고 고정값으로 둔다. 어제 알림이 남아 있으면 오늘 것이 덮어쓴다.
+            tag: 'morning-digest',
+          },
+          ttl
+        )
       )
     )
 
